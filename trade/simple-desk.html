@@ -1,0 +1,1057 @@
+<?php 
+	error_reporting(E_ALL);
+	
+	//echo '<pre>';
+	
+	include_once("libs/symbols.php");
+	
+	$q = Array(); //текущая демо-квота 
+	$_symbol = strval($_GET['symbol']);
+	
+	if (empty($_symbol))
+		$_symbol = 'USDT.FUT/IDXT';	
+	
+	
+	if (array_key_exists($_symbol, $__symbols) === true){
+		$q = $__symbols[ $_symbol ];
+	}
+	else {
+		$q = $__symbols[ array_rand($__symbols, 1) ];
+	}
+	
+	//echo $_symbol;
+	//echo '<pre>';
+	//var_dump($q);
+	
+	//exit();
+	
+?>
+<!DOCTYPE html>
+<html>
+    <head>
+        
+        <!-- Title -->
+        <title>IDXT | Exchange futures trading, CFD, crypto indices - Trading desk</title>
+        
+        <meta content="width=device-width, initial-scale=1" name="viewport"/>
+        <meta charset="UTF-8">
+        <meta name="description" content="IDXT | IndexTrade.Exchange" />
+        <meta name="keywords" content="bitcoin,exchange,index,indextrade,trading,cryptocurrency" />
+        <meta name="author" content="CoinIndex Ltd. <info@coinindex.agency>" />
+        
+        <!-- Styles -->
+        <link href='//fonts.googleapis.com/css?family=Ubuntu:300,400,500,700' rel='stylesheet' type='text/css'>
+        <link href="//static.indextrade.exchange/plugins/pace-master/themes/blue/pace-theme-flash.css" rel="stylesheet"/>
+        <link href="//static.indextrade.exchange/plugins/uniform/css/uniform.default.min.css" rel="stylesheet"/>
+        <link href="//static.indextrade.exchange/plugins/bootstrap/css/bootstrap.min.css" rel="stylesheet" type="text/css"/>
+        <link href="//static.indextrade.exchange/plugins/fontawesome/css/font-awesome.css" rel="stylesheet" type="text/css"/>
+        <link href="//static.indextrade.exchange/plugins/line-icons/simple-line-icons.css" rel="stylesheet" type="text/css"/>	
+        <link href="//static.indextrade.exchange/plugins/waves/waves.min.css" rel="stylesheet" type="text/css"/>	
+        <link href="//static.indextrade.exchange/plugins/switchery/switchery.min.css" rel="stylesheet" type="text/css"/>
+        <link href="//static.indextrade.exchange/plugins/3d-bold-navigation/css/style.css" rel="stylesheet" type="text/css"/>
+        <link href="//static.indextrade.exchange/plugins/slidepushmenus/css/component.css" rel="stylesheet" type="text/css"/>	
+        <link href="//static.indextrade.exchange/plugins/weather-icons-master/css/weather-icons.min.css" rel="stylesheet" type="text/css"/>	
+        <link href="//static.indextrade.exchange/plugins/metrojs/MetroJs.min.css" rel="stylesheet" type="text/css"/>	
+        <link href="//static.indextrade.exchange/plugins/toastr/toastr.min.css" rel="stylesheet" type="text/css"/>	
+        	
+        <!-- Theme Styles -->
+        <link href="//static.indextrade.exchange/css/modern.min.css" rel="stylesheet" type="text/css"/>
+        <link href="//static.indextrade.exchange/css/custom.css" rel="stylesheet" type="text/css"/>
+        
+        <script src="//static.indextrade.exchange/plugins/3d-bold-navigation/js/modernizr.js"></script>
+        
+        
+        <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+        <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+        <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+        <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+        <![endif]-->
+		
+		
+		<script>
+			var chartMain = null; // globally available
+			var curAsset = <?php echo json_encode($q); ?>;
+		</script>
+        
+    </head>
+    <body class="page-horizontal-bar  pace-done page-header-fixed compact-menu">
+        <div class="overlay"></div>
+        <main class="page-content content-wrap">
+            <div class="navbar">
+                <div class="navbar-inner container">
+                    <div class="sidebar-pusher">
+                        <a href="javascript:void(0);" class="waves-effect waves-button waves-classic push-sidebar">
+                            <i class="fa fa-bars"></i>
+                        </a>
+                    </div>
+                    <div class="logo-box">
+                        <a href="//indextrade.exchange/index.html" class="logo-text"><span>IndexTrade</span></a>
+                    </div><!-- Logo Box -->
+                    <div class="topmenu-outer">
+                        <div class="top-menu">
+                            <ul class="nav navbar-nav navbar-left">
+                                <!--<li>		
+                                    <a href="javascript:void(0);" class="waves-effect waves-button waves-classic sidebar-toggle"><i class="fa fa-bars"></i></a>
+                                </li>
+                                
+								<li>
+                                    <a href="#cd-nav" class="waves-effect waves-button waves-classic cd-nav-trigger"><i class="fa fa-diamond"></i></a>
+                                </li>
+								-->
+                                <li>		
+                                    <a href="javascript:void(0);" class="waves-effect waves-button waves-classic toggle-fullscreen"><i class="fa fa-expand"></i></a>
+                                </li>
+                                
+								<li class="dropdown">
+                                    <a href="#" class="dropdown-toggle waves-effect waves-button waves-classic" data-toggle="dropdown">
+                                        <i class="fa fa-cogs"></i>
+                                    </a>
+                                    <ul class="dropdown-menu dropdown-md dropdown-list theme-settings" role="menu">
+                                        <li class="li-group">
+                                            <ul class="list-unstyled">
+                                                <li class="no-link" role="presentation">
+                                                    Option One 
+                                                    <div class="ios-switch pull-right switch-md">
+                                                        <input type="checkbox" class="js-switch pull-right fixed-header-check" checked>
+                                                    </div>
+                                                </li>
+                                            </ul>
+                                        </li>
+                                        <li class="li-group">
+                                            <ul class="list-unstyled">
+                                                <li class="no-link" role="presentation">
+                                                    Option Two 
+                                                    <div class="ios-switch-xx pull-right switch-md">
+                                                        <input type="checkbox" class="js-switch pull-right fixed-sidebar-check-xx">
+                                                    </div>
+                                                </li>
+                                                <li class="no-link" role="presentation">
+                                                    Option  
+                                                    <div class="ios-switch-xx pull-right switch-md">
+                                                        <input type="checkbox" class="js-switch pull-right toggle-sidebar-check-xx">
+                                                    </div>
+                                                </li>
+                                                <li class="no-link" role="presentation">
+                                                    Option
+                                                    <div class="ios-switch-xx pull-right switch-md">
+                                                        <input type="checkbox" class="js-switch pull-right compact-menu-check-xx" checked>
+                                                    </div>
+                                                </li>
+                                            </ul>
+                                        </li>
+                                        <li class="no-link"><button class="btn btn-default reset-options">Reset Options</button></li>
+                                    </ul>
+                                </li>
+								
+                            </ul>
+                            <ul class="nav navbar-nav navbar-right">
+                                
+                                <li class="dropdown">
+                                    <a href="#" class="dropdown-toggle waves-effect waves-button waves-classic" data-toggle="dropdown"><i class="fa fa-envelope"></i><span class="badge badge-success pull-right">3</span></a>
+                                    <ul class="dropdown-menu title-caret dropdown-lg" role="menu">
+                                        <li><p class="drop-title">You have 3 new messages !</p></li>
+                                        <li class="dropdown-menu-list slimscroll tasks">
+                                            <ul class="list-unstyled">
+                                                <li>
+                                                    <a href="#">
+                                                        <div class="task-icon badge badge-success"><i class="icon-user"></i></div>
+                                                        <span class="badge badge-roundless badge-default pull-right">1min ago</span>
+                                                        <p class="task-details">New user registered.</p>
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <a href="#">
+                                                        <div class="task-icon badge badge-danger"><i class="icon-energy"></i></div>
+                                                        <span class="badge badge-roundless badge-default pull-right">24min ago</span>
+                                                        <p class="task-details">Database error.</p>
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <a href="#">
+                                                        <div class="task-icon badge badge-info"><i class="icon-heart"></i></div>
+                                                        <span class="badge badge-roundless badge-default pull-right">1h ago</span>
+                                                        <p class="task-details">Reached 24k likes</p>
+                                                    </a>
+                                                </li>
+                                            </ul>
+                                        </li>
+                                        <li class="drop-all"><a href="#" class="text-center">All Messages</a></li>
+                                    </ul>
+                                </li>
+                                <li class="dropdown">
+                                    <a href="#" class="dropdown-toggle waves-effect waves-button waves-classic" data-toggle="dropdown">
+                                        <span class="user-name">Aleks Raiden<i class="fa fa-angle-down"></i></span>
+                                        <img class="img-circle avatar" src="//static.indextrade.exchange/images/avatar1.png" width="40" height="40" alt="">
+                                    </a>
+                                    <ul class="dropdown-menu dropdown-list" role="menu">
+                                        <li role="presentation"><a href="profile.html"><i class="fa fa-user"></i>Profile</a></li>
+                                        <li role="presentation"><a href="wallet.html"><span aria-hidden="true" class="icon-wallet"></span> Wallet</a></li>
+                                        <li role="presentation"><a href="inbox.html"><i class="fa fa-envelope"></i>Inbox<span class="badge badge-success pull-right">4</span></a></li>
+                                        <li role="presentation" class="divider"></li>
+                                        <li role="presentation"><a href="lock-screen.html"><i class="fa fa-lock"></i>Lock screen</a></li>
+                                        <li role="presentation"><a href="login.html"><i class="fa fa-sign-out m-r-xs"></i>Log out</a></li>
+                                    </ul>
+                                </li>
+                                <!--
+								<li>
+                                    <a href="javascript:void(0);" class="waves-effect waves-button waves-classic" id="showRight">
+                                        <i class="fa fa-comments"></i>
+                                    </a>
+                                </li>
+								-->
+                            </ul><!-- Nav -->
+                        </div><!-- Top Menu -->
+                    </div>
+                </div>
+            </div><!-- Navbar -->
+            <div class="page-sidebar sidebar horizontal-bar">
+                <div class="page-sidebar-inner">
+                    <ul class="menu accordion-menu">
+                        <li class="droplink"><a href="#"><span class="menu-icon icon-grid"></span><p style="font-weight:bold;">Futures <span class="label label-danger">Hot</span></p><span class="arrow"></span></a>
+                            <ul class="sub-menu">
+                                <li><a href="?symbol=USDT.FUT/IDXT">Tether.FUT/IDXT</a></li>
+                                <li><a href="?symbol=EOS.FUT/TUSD">EOS.FUT/TUSD</a></li>
+								<li><a href="?symbol=ETH.FUT/TUSD">Ethereum.FUT/TUSD</a></li>
+								<li><a href="?symbol=BCH.FUT/TUSD">BitcoinCash.FUT/TUSD</a></li>
+								<li><a href="?symbol=LTC.FUT/TUSD">Litecoin.FUT/TUSD</a></li>
+								<li><a href="?symbol=TRX.FUT/ETH">Tron.FUT/ETH</a></li>
+								<li><a href="?symbol=BNC.FUT/ETH">BinanceCoin.FUT/ETH</a></li>
+								<li><a href="?symbol=TRUE.FUT/ETH">TrueChain.FUT/ETH</a></li>
+								<li><a href="?symbol=BIX.FUT/TUSD">BiboxToken.FUT/TUSD</a></li>
+								<li><a href="?symbol=ZRX.FUT/NANO">0x.FUT/NANO</a></li>
+								<li><a href="?symbol=HT.FUT/NANO">HuobiToken.FUT/NANO</a></li>
+								<li><a href="?symbol=DMT.FUT/NANO">DMarket.FUT/NANO</a></li>
+								<li><a href="?symbol=REP.FUT/NANO">Augur.FUT/NANO</a></li>		
+								<li><hr /></li>
+								<li><a href="#"><b>Apply to list own</b></a></li>
+                            </ul>
+                        </li>
+						
+						<li class="droplink"><a href="#"><span class="menu-icon icon-grid"></span><p style="font-weight:bold;">Main Index <span class="label label-success">FUT</span></p><span class="arrow"></span></a>
+                            <ul class="sub-menu">
+                                <li><a href="?symbol=COINIDX.IDX/IDXT">COINIDX.IDX/IDXT</a></li>
+								<li><a href="?symbol=TCAP10.IDX/IDXT">TCAP10.IDX/IDXT</a></li>
+                                <li><a href="?symbol=TCAP25.IDX/IDXT">TCAP25.IDX/IDXT</a></li>
+								<li><a href="?symbol=TCAP50.IDX/IDXT">TCAP50.IDX/IDXT</a></li>
+								<li><a href="?symbol=TCAP100.IDX/IDXT">TCAP100.IDX/IDXT</a></li>
+								<li><a href="?symbol=TCAP500.IDX/IDXT">TCAP500.IDX/IDXT</a></li>
+								<li><a href="?symbol=TCAP1000.IDX/IDXT">TCAP1000.IDX/IDXT</a></li>
+								<li><a href="?symbol=MCAP10B.IDX/IDXT">MCAP10B.IDX/IDXT</a></li>
+								<li><a href="?symbol=MCAP1B.IDX/IDXT">MCAP1B.IDX/IDXT</a></li>
+								<li><a href="?symbol=MCAP500M.IDX/IDXT">MCAP500M.IDX/IDXT</a></li>
+								<li><a href="?symbol=MCAP100M.IDX/IDXT">MCAP100M.IDX/IDXT</a></li>
+								<li><a href="?symbol=LowCap.IDX/IDXT">LowCap.IDX/IDXT</a></li>														
+                            </ul>
+                        </li>
+						
+						<li class="droplink"><a href="#"><span class="menu-icon icon-grid"></span><p style="font-weight:bold;">Platform Index <span class="label label-success">FUT</span></p><span class="arrow"></span></a>
+                            <ul class="sub-menu">
+                                <li><a href="?symbol=ETH.IDX/IDXT">Ethreum.IDX/IDXT</a></li>
+								<li><a href="?symbol=EOS.IDX/IDXT">EOS.IDX/IDXT</a></li>
+								<li><a href="?symbol=WAVES.IDX/IDXT">WAVES.IDX/IDXT</a></li>
+								<li><a href="?symbol=BTS.IDX/IDXT">BitShares.IDX/IDXT</a></li>
+								<li><a href="?symbol=NEO.IDX/IDXT">NEO.IDX/IDXT</a></li>
+								<li><a href="?symbol=NEM.IDX/IDXT">NEM.IDX/IDXT</a></li>
+								<li><a href="?symbol=OMNI.IDX/IDXT">OMNI.IDX/IDXT</a></li>
+								<li><a href="?symbol=QTUM.IDX/IDXT">Qtum.IDX/IDXT</a></li>
+								<li><a href="?symbol=XLM.IDX/IDXT">Stellar.IDX/IDXT</a></li>
+								<li><a href="?symbol=UBIQ.IDX/IDXT">Ubiq.IDX/IDXT</a></li>
+								<li><a href="?symbol=ARDR.IDX/IDXT">Ardor.IDX/IDXT</a></li>
+								<li><a href="?symbol=ACT.IDX/IDXT">Achain.IDX/IDXT</a></li>
+								<li><a href="?symbol=COPARTY.IDX/IDXT">Counterparty.IDX/IDXT</a></li>
+                            </ul>
+                        </li>
+						
+						<li class="droplink"><a href="#"><span class="menu-icon icon-grid"></span><p style="font-weight:bold;">Sector Index <span class="label label-success">FUT</span></p><span class="arrow"></span></a>
+                            <ul class="sub-menu">
+                                <li><a href="?symbol=PAY.IDX/IDXT">Payments.IDX/IDXT</a></li>
+								<li><a href="?symbol=ADS.IDX/IDXT">Ads.IDX/IDXT</a></li>
+                                <li><a href="?symbol=CASINO.IDX/IDXT">Casino.IDX/IDXT</a></li>
+								<li><a href="?symbol=ANON.IDX/IDXT">Anonim.IDX/IDXT</a></li>
+								<li><a href="?symbol=GAME.IDX/IDXT">Gaming.IDX/IDXT</a></li>
+								<li><a href="?symbol=SOC.IDX/IDXT">Social.IDX/IDXT</a></li>
+								<li><a href="?symbol=SRV.IDX/IDXT">Service.IDX/IDXT</a></li>
+								<li><a href="?symbol=CANNAB.IDX/IDXT">Cannabis.IDX/IDXT</a></li>
+								<li><a href="?symbol=MED.IDX/IDXT">Medical.IDX/IDXT</a></li>
+								<li><a href="?symbol=EXC.IDX/IDXT">Exchanges.IDX/IDXT</a></li>
+								<li><a href="?symbol=DEX.IDX/IDXT">DEX.IDX/IDXT</a></li>
+								<li><a href="?symbol=FTECH.IDX/IDXT">FinTech.IDX/IDXT</a></li>
+								<li><a href="?symbol=MOB.IDX/IDXT">Mobile.IDX/IDXT</a></li>
+								<li><a href="?symbol=FUNDS.IDX/IDXT">TokenizedFunds.IDX/IDXT</a></li>								
+                            </ul>
+                        </li>
+						
+						<li class="droplink"><a href="#"><span class="menu-icon icon-grid"></span><p style="font-weight:bold;">ETH <span class="label label-info">SPOT</span></p><span class="arrow"></span></a>
+                            <ul class="sub-menu">
+                                <li><a href="?symbol=BTC/ETH">BTC/ETH</a></li>
+                                <li><a href="?symbol=EOS/ETH">EOS/ETH</a></li>
+								<li><a href="?symbol=EMC/ETH">EMC/ETH</a></li>
+								<li><a href="?symbol=BCH/ETH">BCH/ETH</a></li>
+								<li><a href="?symbol=XLM/ETH">XLM/ETH</a></li>
+								<li><a href="?symbol=LTC/ETH">LTC/ETH</a></li>
+								<li><a href="?symbol=XMR/ETH">XMR/ETH</a></li>
+								<li><a href="?symbol=ZEC/ETH">ZEC/ETH</a></li>
+								<li><a href="?symbol=XRP/ETH">XRP/ETH</a></li>
+								<li><a href="?symbol=DTR/ETH">DTR/ETH</a></li>
+								<li><a href="?symbol=USDT/ETH">USDT/ETH</a></li>
+								<li><a href="?symbol=TUSD/ETH">TUSD/ETH</a></li>
+								<li><a href="?symbol=NANO/ETH">NANO/ETH</a></li>								
+                            </ul>
+                        </li>
+                        
+                        <li class="droplink"><a href="#"><span class="menu-icon icon-grid"></span><p style="font-weight:bold;">IDXT <span class="label label-primary">Zero-fee</span></p><span class="arrow"></span></a>
+                            <ul class="sub-menu">
+                                <li><a href="?symbol=BTC/IDXT">BTC/IDXT</a></li>
+                                <li><a href="?symbol=ETH/IDXT">ETH/IDXT</a></li>
+								<li><a href="?symbol=ETC/IDXT">ETC/IDXT</a></li>
+								<li><a href="?symbol=EOS/IDXT">EOS/IDXT</a></li>
+								<li><a href="?symbol=EMC/IDXT">EMC/IDXT</a></li>
+								<li><a href="?symbol=BCH/IDXT">BCH/IDXT</a></li>
+								<li><a href="?symbol=XLM/IDXT">XLM/IDXT</a></li>
+								<li><a href="?symbol=LTC/IDXT">LTC/IDXT</a></li>
+								<li><a href="?symbol=XMR/IDXT">XMR/IDXT</a></li>
+								<li><a href="?symbol=ZEC/IDXT">ZEC/IDXT</a></li>
+								<li><a href="?symbol=XRP/IDXT">XRP/IDXT</a></li>
+								<li><a href="?symbol=DTR/IDXT">DTR/IDXT</a></li>
+								<li><a href="?symbol=USDT/IDXT">USDT/IDXT</a></li>
+								<li><a href="?symbol=TUSD/IDXT">TUSD/IDXT</a></li>
+								<li><a href="?symbol=NANO/IDXT">NANO/IDXT</a></li>								
+                            </ul>
+                        </li>
+						<li class="droplink"><a href="#"><span class="menu-icon icon-grid"></span><p style="font-weight:bold;">TrueUSD <span class="label label-info">SPOT</span></p><span class="arrow"></span></a>
+                            <ul class="sub-menu">
+                                <li><a href="?symbol=BTC/TUSD">BTC/TUSD</a></li>
+                                <li><a href="?symbol=EOS/TUSD">EOS/TUSD</a></li>
+								<li><a href="?symbol=EMC/TUSD">EMC/TUSD</a></li>
+								<li><a href="?symbol=BCH/TUSD">BCH/TUSD</a></li>
+								<li><a href="?symbol=ETH/TUSD">ETH/TUSD</a></li>
+								<li><a href="?symbol=LTC/TUSD">LTC/TUSD</a></li>
+								<li><a href="?symbol=XMR/TUSD">XMR/TUSD</a></li>
+								<li><a href="?symbol=ZEC/TUSD">ZEC/TUSD</a></li>
+								<li><a href="?symbol=XRP/TUSD">XRP/TUSD</a></li>
+								<li><a href="?symbol=DTR/TUSD">DTR/TUSD</a></li>
+								<li><a href="?symbol=NANO/TUSD">NANO/TUSD</a></li>								
+                            </ul>
+                        </li>
+						                      
+                    </ul>
+                </div><!-- Page Sidebar Inner -->
+			</div><!-- Page Sidebar -->
+            
+			<div class="page-inner" style="min-height:100px !important;">
+                <div class="page-breadcrumb">
+                    <ol class="breadcrumb container text-center">
+                        <li class="active"><a href="simple-desk.html">Trading Desk</a></li>
+						
+						<li ><a href="/">News</a></li>
+						<li ><a href="/">Support</a></li>
+						<li ><a href="wallet.html">Wallets</a></li>
+						<li ><a href="/">Assets</a></li>
+						<li ><a href="/">Analytics</a></li>
+						<li ><a href="/">API</a></li>
+						<li ><a href="/">Help</a></li>
+						<li ><a href="/"><b><span aria-hidden="true" class="icon-star" style="color:#f6d433;"></span> Trading Terminal</b> </a></li>
+						<li ><a href="/"><b><span aria-hidden="true" class="icon-star" style="color:#f6d433;"></span> Index Terminal</b> </a></li>
+						
+                    </ol>
+                </div>
+                <div class="page-title">
+                    <div class="container">
+                        
+						<div class="row">
+							<div class="col-lg-3 col-md-3 text-center">
+								<h3><b><?php echo $q['symbol']; ?><!--EOS/ETH--></b></h3>
+								<span class="info-box-title">
+									<a href="#">
+									<?php 
+										echo $q['index'];
+										echo ' ';
+										
+										if ($q['type'] == 'FUT')
+											echo 'Futures market';
+										else
+										if ($q['type'] == 'SPOT')
+											echo 'Spot market';
+									?>
+										<!--EOS/Ethreum Spot market--></a></span>
+								<!--<span class="label label-success">Open to trade</span>-->
+							</div>
+						
+							<div class="col-lg-2 col-md-2 text-center">
+								<h3><?php echo $q['last']; ?><!--0.0171--></h3>
+								<span class="info-box-title">Last price, <?php echo $q['cur']; ?><!--ETH--></span>
+							</div>
+							
+							<div class="col-lg-1 col-md-1 text-center">
+								<?php 
+									if ($q['change'] > 0)
+										echo '<h3 style="color:green;">+'.$q['change'].'<!-- <i class="fa fa-level-up"></i>--></h3>';
+									else
+										echo '<h3 style="color:red;">'.$q['change'].'<!-- <i class="fa fa-level-down"></i>--></h3>';
+								
+								?>
+								<!--<h3 style="color:green;">+1.22 <i class="fa fa-level-up"></i></h3>-->
+								<span class="info-box-title">Change, %</span>
+							</div>
+							
+							
+							<div class="col-lg-2 col-md-2 text-center">
+								<h3><?php echo $q['low']; ?><!--0.0168--></h3>
+								<span class="info-box-title">Low price, <?php echo $q['cur']; ?><!--ETH--></span>
+							</div>
+							
+							<div class="col-lg-2 col-md-2 text-center">
+								<h3><?php echo $q['high']; ?><!--0.0174--></h3>
+								<span class="info-box-title">High price, <?php echo $q['cur']; ?><!--ETH--></span>
+							</div>
+						
+							<div class="col-lg-2 col-md-2 text-center">
+								<h3><?php echo number_format($q['24hVol'], 0, '.', ' '); ?><!--23 450--></h3>
+								<span class="info-box-title">24H Volume, <?php echo $q['cur']; ?><!--ETH--></span>
+							</div>	
+						</div>
+                    </div>
+                </div>
+                <div id="main-wrapper" class="container" style="margin-top:12px !important;">
+                    
+					
+                    <div class="row">
+                        <div class="col-lg-9 col-md-9" style="padding-right:2px !important;">
+                            <div class="panel panel-white">
+                                
+								<!-- Chart -->
+								<div id="chartContainer" style="width:100%; height:600px;"></div>
+								
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-md-3" style="padding-left:2px !important;">
+                            <div class="panel panel-white" style="height: 602px;">
+                                <div class="panel-heading">
+                                    <h4 class="panel-title">Orderbook <span style="font-weight:normal;">(Buy&amp;Sell)</span></h4>
+                                    <div class="panel-control">
+                                        <a href="javascript:void(0);" data-toggle="tooltip" data-placement="top" title="Full-depth book" class=""><i class="icon-list"></i>&nbsp;</a>
+										
+										<a href="javascript:void(0);" data-toggle="tooltip" data-placement="top" title="View options" class=""><i class="icon-settings"></i>&nbsp;</a>
+										
+										<a href="javascript:void(0);" data-toggle="tooltip" data-placement="top" title="Reload" class="panel-reload"><i class="icon-reload"></i></a>
+                                    </div>
+                                </div>
+                                <div class="panel-body">
+                                    
+									<div class="row" style="font-weight:bold;height:50% !important;">
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											Price
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											Amount
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											Volume
+										</div>
+									</div>
+									
+									<div class="row" style="font-weight:normal;height:50% !important;">
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:red;">
+											0.0171
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											234.22
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											4.0051
+										</div>
+									</div>
+									<div class="row" style="font-weight:normal;height:50% !important;">
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:red;">
+											0.0170
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											234.22
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											4.0051
+										</div>
+									</div>
+									<div class="row" style="font-weight:normal;height:50% !important;">
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:red;">
+											0.0169
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											234.22
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											4.0051
+										</div>
+									</div>
+									<div class="row" style="font-weight:normal;height:50% !important;">
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:red;">
+											0.0168
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											234.22
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											4.0051
+										</div>
+									</div>
+									<div class="row" style="font-weight:normal;height:50% !important;">
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:red;">
+											0.0167
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											234.22
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											4.0051
+										</div>
+									</div>
+									<div class="row" style="font-weight:normal;height:50% !important;">
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:red;">
+											0.0166
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											234.22
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											4.0051
+										</div>
+									</div>
+									<div class="row" style="font-weight:normal;height:50% !important;">
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:red;">
+											0.0165
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											234.22
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											4.0051
+										</div>
+									</div>
+									<div class="row" style="font-weight:normal;height:50% !important;">
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:red;">
+											0.0164
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											234.22
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											4.0051
+										</div>
+									</div>
+									<div class="row" style="font-weight:normal;height:50% !important;">
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:red;">
+											0.0163
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											234.22
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											4.0051
+										</div>
+									</div>
+									<div class="row" style="font-weight:normal;height:50% !important;">
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:red;">
+											0.0162
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											234.22
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											4.0051
+										</div>
+									</div>
+									<div class="row" style="font-weight:normal;height:50% !important;">
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:red;">
+											0.0161
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											234.22
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											4.0051
+										</div>
+									</div>
+									<div class="row" style="font-weight:normal;height:50% !important;">
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:red;">
+											0.0160
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											234.22
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											4.0051
+										</div>
+									</div>
+									
+									<!--- -->
+									<div class="row" style="">
+										<div class="col-lg-12 col-md-12 text-center" style="padding-right:0px !important; padding-left:0px !important;background-color:#ffd8d8;">
+											
+											<h3 style="margin-top:10px !important; margin-bottom:10px !important;"> 
+											<?php echo $q['last']; ?><!--0.0160--> <i class="fa fa-long-arrow-down"></i>
+											</h3>
+											
+										</div>
+									</div>
+									
+									<div class="row" style="font-weight:normal;height:50% !important;">
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:green;">
+											0.0159
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											234.22
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											4.0051
+										</div>
+									</div>
+									<div class="row" style="font-weight:normal;height:50% !important;">
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:green;">
+											0.0158
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											234.22
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											4.0051
+										</div>
+									</div>
+									<div class="row" style="font-weight:normal;height:50% !important;">
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:green;">
+											0.0157
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											234.22
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											4.0051
+										</div>
+									</div>
+									<div class="row" style="font-weight:normal;height:50% !important;">
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:green;">
+											0.0156
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											234.22
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											4.0051
+										</div>
+									</div>
+									<div class="row" style="font-weight:normal;height:50% !important;">
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:green;">
+											0.0155
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											234.22
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											4.0051
+										</div>
+									</div>
+									<div class="row" style="font-weight:normal;height:50% !important;">
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:green;">
+											0.0154
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											234.22
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											4.0051
+										</div>
+									</div>
+									<div class="row" style="font-weight:normal;height:50% !important;">
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:green;">
+											0.0153
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											234.22
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											4.0051
+										</div>
+									</div>
+									<div class="row" style="font-weight:normal;height:50% !important;">
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:green;">
+											0.0152
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											234.22
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											4.0051
+										</div>
+									</div>
+									<div class="row" style="font-weight:normal;height:50% !important;">
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:green;">
+											0.0151
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											234.22
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											4.0051
+										</div>
+									</div>
+									<div class="row" style="font-weight:normal;height:50% !important;">
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:green;">
+											0.0150
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											234.22
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											4.0051
+										</div>
+									</div>
+									<div class="row" style="font-weight:normal;height:50% !important;">
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:green;">
+											0.0149
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											234.22
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											4.0051
+										</div>
+									</div>
+									<div class="row" style="font-weight:normal;height:50% !important;">
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:green;">
+											0.0148
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											234.22
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											4.0051
+										</div>
+									</div>
+									<div class="row" style="font-weight:normal;height:50% !important;">
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:green;">
+											0.0147
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											234.22
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											4.0051
+										</div>
+									</div>
+									
+                                </div>
+                            </div>
+                        </div>
+					</div>
+					
+					<div class="row">
+					<div class="col-lg-12 col-md-12">
+					<div class="panel panel-white">
+						<div class="row">
+							<div class="col-sm-4">
+								<div class="panel panel-default">
+                                <div class="panel-heading text-center" style="padding:5px !important; height:34px !important;padding-left:20px !important; padding-top:10px !important;">
+                                    <h3 class="panel-title">
+										Buy 
+										<?php 
+										if ($q['type'] == 'FUT')
+											echo '<span style="color:black">' . $q['contract'] . '</span>' . ' contract';
+										else
+											echo '<span style="color:black">'.$q['ass'].'</span>';
+										?>
+									</h3>
+                                </div>
+                                <div class="panel-body">
+                                    <div class="form-group" style="padding-top:15px !important;">
+										<div class="col-sm-12 col-lg-12" style="padding-right:0px !important; padding-left:0px !important;">
+											<div class="input-group m-b-sm">
+												<input type="text" class="form-control" placeholder="Price" aria-describedby="basic-addon1">
+												<span class="input-group-addon" id="basic-addon1" style="width:40%"><?php echo $q['cur']; ?></span>
+												
+											</div>
+											
+											<div class="input-group m-b-sm">
+												<input type="text" class="form-control" placeholder="Amount" aria-describedby="basic-addon1">
+												<span class="input-group-addon" id="basic-addon1" style="width:40%">
+												
+												<?php 
+													if ($q['type'] == 'FUT')
+														echo $q['contract'];
+													else
+														echo $q['ass'];
+												?>												
+												</span>
+											</div>
+											
+											<div class="input-group m-b-sm" style="margin-bottom:2px !important;">
+												<input type="text" class="form-control" placeholder="Total" aria-describedby="basic-addon1" readonly="">
+												<span class="input-group-addon" id="basic-addon1"><?php echo $q['cur']; ?></span>
+											</div>											
+											
+											<div class="input-group m-b-sm">
+											<p class="form-control-static">Transaction fee: 0.123 <?php echo $q['cur'];?></p>
+											</div>
+											
+											<div class="input-group m-b-sm" style="text-align:center; width:100%;">
+												<button type="button" class="btn btn-success" style="width:100%;">BUY</button>
+											</div>
+										</div>
+									</div>
+                                </div>
+								</div>
+							</div>
+							
+							<div class="col-sm-4">
+							
+							<div class="panel panel-default">
+                                <div class="panel-heading" style="padding:2px !important; height:34px !important;padding-left:20px !important;padding-top:10px !important;">
+                                    <h3 class="panel-title">
+										Sell 
+										<?php 
+										if ($q['type'] == 'FUT')
+											echo '<span style="color:black">' . $q['contract'] . '</span>' . ' contract';
+										else
+											echo '<span style="color:black">' . $q['ass'] . '</span>';
+										?>
+									</h3>
+                                </div>
+                                <div class="panel-body">
+                                    
+									<div class="form-group" style="padding-top:15px !important;">
+										<div class="col-sm-12 col-lg-12" style="padding-right:0px !important; padding-left:0px !important;">
+											<div class="input-group m-b-sm">
+												<input type="text" class="form-control" placeholder="Price" aria-describedby="basic-addon1">
+												<span class="input-group-addon" id="basic-addon1" style="width:40%"><?php echo $q['cur']; ?></span>
+												
+											</div>
+											
+											<div class="input-group m-b-sm">
+												<input type="text" class="form-control" placeholder="Amount" aria-describedby="basic-addon1">
+												<span class="input-group-addon" id="basic-addon1" style="width:40%">
+												
+												<?php 
+													if ($q['type'] == 'FUT')
+														echo $q['contract'];
+													else
+														echo $q['ass'];
+												?>												
+												</span>
+											</div>
+											
+											<div class="input-group m-b-sm" style="margin-bottom:2px !important;">
+												<input type="text" class="form-control" placeholder="Total" aria-describedby="basic-addon1" readonly="">
+												<span class="input-group-addon" id="basic-addon1"><?php echo $q['cur']; ?></span>
+											</div>											
+											
+											<div class="input-group m-b-sm">
+											<p class="form-control-static">Transaction fee: 0.123 <?php echo $q['cur'];?></p>
+											</div>
+											
+											<div class="input-group m-b-sm" style="text-align:center; width:100%;">
+												<button type="button" class="btn btn-danger" style="width:100%;">SELL</button>
+											</div>
+										</div>
+									</div>
+									
+									
+                                </div>
+                            </div>
+							
+							
+							
+							</div>
+							
+							<div class="col-sm-4">
+								<div class="stats-info" style="margin-right:-1px !important;">
+								<div class="panel panel-default">
+									<div class="panel-heading text-center" style="padding:2px !important; height:34px !important;padding-left:20px !important;padding-top:10px !important;">
+										<h4 class="panel-title">Position, Limits and P&amp;L</h4>
+									</div>
+									<div class="panel-body" style="padding-bottom:12px !important;">
+										<ul class="list-unstyled">
+											<li>Asset available<div class="text-success pull-right">123.01 
+											<?php 
+												if ($q['type'] == 'FUT')
+													echo $q['contract'];
+												else
+													echo $q['ass'];
+											?>
+											</div></li>
+											<li>Currency available<div class="text-success pull-right">1233 <?php echo $q['cur'];?></div></li>
+											<li>Margin deposit<div class="text-success pull-right">100 <?php echo $q['cur'];?><i class="fa fa-level-up"></i></div></li>
+											<li>Position/Long<div class="text-default pull-right">12/200</div></li>
+											<li>Position/Short<div class="text-default pull-right">10/198</div></li>
+											<li>Unrealized P&amp;L<div class="text-success pull-right">200 <?php echo $q['cur'];?><i class="fa fa-level-up"></i></div></li>
+										</ul>
+									</div>
+								</div>
+								</div>
+							</div>
+						</div>
+					</div>
+					</div>
+					</div>
+					
+					
+					
+					
+					
+					
+					<div class="row">
+                        
+                        <div class="col-lg-6 col-md-6" style="padding-right:2px !important;">
+                            <div class="panel panel-white">
+                                <div class="panel-heading">
+                                    <h4 class="panel-title">Latest trade activity</h4>
+                                </div>
+                                <div class="panel-body">
+                                    <div class="table-responsive project-stats">  
+                                       <table class="table table-condensed">
+                                           <thead>
+                                               <tr>
+                                                   <th>Date</th>
+                                                   <th>Asset</th>
+                                                   <th>Price</th>
+                                                   <th>Vol</th>
+                                                   <th>Type</th>
+                                               </tr>
+                                           </thead>
+                                           <tbody>
+                                               <tr>
+                                                   <th scope="row">10:23:00</th>
+                                                   <td>EOS/USDT</td>
+                                                   <td>14.023</td>
+                                                   <td>1.0875</td>
+                                                   <td>
+                                                       <span class="label label-success">BUY</span>
+                                                   </td>
+                                               </tr>
+                                               <tr>
+                                                   <th scope="row">10:23:00</th>
+                                                   <td>EOS/USDT</td>
+                                                   <td>14.023</td>
+                                                   <td>1.0875</td>
+                                                   <td>
+                                                       <span class="label label-danger">SELL</span>
+                                                   </td>
+                                               </tr>
+                                               
+                                               
+                                           </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    
+				
+                        <div class="col-lg-6 col-md-6" style="padding-left:2px !important;">
+                            <div class="panel panel-white">
+                                
+								
+								
+								
+								
+								
+								
+								<div class="panel-heading">
+                                    <h4 class="panel-title">My orders</h4>
+                                </div>
+                                <div class="panel-body">
+                                    <div class="table-responsive project-stats">  
+                                       <table class="table">
+                                           <thead>
+                                               <tr>
+                                                   <th>Date</th>
+                                                   <th>Asset</th>
+                                                   <th>Type</th>
+                                                   <th>Price</th>
+                                                   <th>Volume</th>
+												   <th>Amount</th>
+												   <th>Act</th>
+                                               </tr>
+                                           </thead>
+                                           <tbody>
+                                               <tr>
+                                                   <th scope="row" style="text-align:center;">12:30</th>
+                                                   <td>EOS/USDT</td>
+                                                   <td><span class="label label-success">BUY</span></td>
+                                                   <td>0.0162</td>
+												   <td>233.01</td>
+												   <td>3.7747</td>
+                                                   <td>
+                                                       <!--<i class="fa fa-close" style="cursor:pointer;"></i>-->
+													   <a href="#" style="font-size:10px;">cancel</a>
+                                                   </td>
+                                               </tr>
+                                               <tr>
+                                                   <th scope="row" style="text-align:center;">12:30</th>
+                                                   <td>EOS/USDT</td>
+                                                   <td><span class="label label-success">BUY</span></td>
+                                                   <td>0.0162</td>
+												   <td>233.01</td>
+												   <td>3.7747</td>
+                                                   <td>
+                                                       <!--<i class="fa fa-close" style="cursor:pointer;"></i>-->
+													   <a href="#" style="font-size:10px;">cancel</a>
+                                                   </td>
+                                               </tr>
+                                              
+                                           </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    
+					
+					</div>
+                </div><!-- Main Wrapper -->
+                <div class="page-footer">
+                    <div class="container">
+                        <p class="no-s">2018 © IndexTrade.Exchange by Coinindex Ltd.</p>
+                    </div>
+                </div>
+            </div><!-- Page Inner -->
+        </main><!-- Page Content -->
+
+        <div class="cd-overlay"></div>
+	
+
+        <!-- Javascripts -->
+        <!--<script src="//static.indextrade.exchange/plugins/jquery/jquery-2.1.4.min.js"></script>-->
+		<script src="//static.indextrade.exchange/js/jquery-2.2.4.min.js"></script>
+		
+        <script src="//static.indextrade.exchange/plugins/jquery-ui/jquery-ui.min.js"></script>
+        <script src="//static.indextrade.exchange/plugins/pace-master/pace.min.js"></script>
+        <script src="//static.indextrade.exchange/plugins/jquery-blockui/jquery.blockui.js"></script>
+        <script src="//static.indextrade.exchange/plugins/bootstrap/js/bootstrap.min.js"></script>
+        <script src="//static.indextrade.exchange/plugins/jquery-slimscroll/jquery.slimscroll.min.js"></script>
+        <script src="//static.indextrade.exchange/plugins/switchery/switchery.min.js"></script>
+        <script src="//static.indextrade.exchange/plugins/uniform/jquery.uniform.min.js"></script>
+        <script src="//static.indextrade.exchange/plugins/classie/classie.js"></script>
+        <script src="//static.indextrade.exchange/plugins/waves/waves.min.js"></script>
+        <script src="//static.indextrade.exchange/plugins/3d-bold-navigation/js/main.js"></script>
+        <script src="//static.indextrade.exchange/plugins/waypoints/jquery.waypoints.min.js"></script>
+        <script src="//static.indextrade.exchange/plugins/jquery-counterup/jquery.counterup.min.js"></script>
+        <script src="//static.indextrade.exchange/plugins/toastr/toastr.min.js"></script>
+        
+		
+		<script src="//static.indextrade.exchange/plugins/metrojs/MetroJs.min.js"></script>
+        <script src="//static.indextrade.exchange/js/modern.js"></script>
+        <script src="//static.indextrade.exchange/js/pages/dashboard.js"></script>
+		
+		<script src="//static.indextrade.exchange/highstock/code/highstock.js"></script>
+		<script src="//static.indextrade.exchange/highstock/code/modules/drag-panes.js"></script>
+		<script src="//static.indextrade.exchange/highstock/code/modules/exporting.js"></script>
+		<script src="//static.indextrade.exchange/highstock/code/indicators/indicators.js"></script>
+		<script src="//static.indextrade.exchange/highstock/code/indicators/volume-by-price.js"></script>
+		
+		<script>
+			/*
+			
+		   */
+		</script>
+        
+    </body>
+</html>
