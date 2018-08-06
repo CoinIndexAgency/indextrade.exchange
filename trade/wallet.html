@@ -11,6 +11,9 @@
 			
 			include_once('_header_js.html');
 		?>
+		
+		<link href="//static.indextrade.exchange/plugins/ion.rangeslider/css/ion.rangeSlider.css" rel="stylesheet" type="text/css"/>
+        <link href="//static.indextrade.exchange/plugins/ion.rangeslider/css/ion.rangeSlider.skinFlat.css" rel="stylesheet" type="text/css"/>
 				
 		<script>
 
@@ -91,7 +94,7 @@
 											
 															
 												
-						<div class="panel panel-transparent">
+						<div class="panel panel-transparent" style="">
 							
 							<div class="row" style="height:150px;">
 								<div class="col-xs-2 text-center">
@@ -192,8 +195,6 @@
 									</div>
 								</div>
 								
-								
-								
 								</div>
 								
 								<div class="col-xs-4">
@@ -222,7 +223,48 @@
 									</div>
 									</div>
 								</div>
+							
+							
+							
+									<div class="col-xs-12" style="margin-left:15px;padding-right:30px;">
+								<div class="panel panel-default" style="margin-bottom:5px;">
+										<div class="panel-heading text-center" style="padding:5px !important; height:34px !important;padding-left:20px !important; padding-top:10px !important;">
+											<h3 class="panel-title">
+												Margin deposit control panel
+											</h3>
+										</div>
+										<div class="panel-body" style="padding-bottom:0px;padding-top:10px;">
+											<div class="form-group">
+												<label for="input-Default" class="col-sm-2 control-label"><b>Deposit size</b><span class="text-muted f-s-12 clearfix">Margin are security your all futures open position</span></label>
+												<div class="col-sm-10">
+													<input type="text" id="range_07">
+												</div>
+											</div>
+
+											<div class="form-group text-right" style="margin-top:75px;">
+												<button type="button" class="btn btn-success" style="width:100%;">Apply changes</button>
+											</div>
+											
+										</div>
+										<div>
+											<div class="alert alert-info" role="alert">
+												* Note! All change apply to margin deposit are taken once at minute.
+											</div>
+										
+										
+										</div>
+									</div>
+								</div>
+							
+							
 							</div>
+							
+							<!--
+							<div class="row" style="margin-left:15px;">
+							
+							</div>
+							-->
+							
 							
 						</div>
 					
@@ -312,6 +354,9 @@
 		<?php 
 			include_once('_footer_js.html');
 		?>
+		
+		<script src="//static.indextrade.exchange/plugins/ion.rangeslider/js/ion-rangeSlider/ion.rangeSlider.min.js"></script>
+        <script src="//static.indextrade.exchange/js/pages/ui-sliders.js"></script>
 		
 		<script>
 			/*
