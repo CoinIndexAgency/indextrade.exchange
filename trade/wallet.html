@@ -26,11 +26,15 @@
             <?php 
 				include_once('_header_menu_top_navigation.html');
 				
-				include_once('_header_menu_trading.html');
+				//include_once('_header_menu_trading.html');
 			?>
                         
 			<div class="page-inner" style="min-height:100px !important;">
-                <?php 
+                <div class="page-sidebar sidebar horizontal-bar">
+					<div class="page-sidebar-inner">
+					</div>
+				</div>
+				<?php 
 					include_once('_header_menu_main.html');
 				?>
                 <div class="page-title">
@@ -84,7 +88,6 @@
 											<li role="presentation" class=""><a href="#tab21" role="tab" data-toggle="tab" aria-expanded="true"><b>ZEC</b><span class="pull-right">&nbsp;&nbsp;&nbsp;0</span></a></li>
 											<li role="presentation" class=""><a href="#tab22" role="tab" data-toggle="tab" aria-expanded="true"><b>XMR</b><span class="pull-right">&nbsp;&nbsp;&nbsp;0</span></a></li>
 											<li role="presentation" class=""><a href="#tab23" role="tab" data-toggle="tab" aria-expanded="true"><b>DTR</b><span class="pull-right">&nbsp;&nbsp;&nbsp;0</span></a></li>
-											<li role="presentation" class=""><a href="#tab24" role="tab" data-toggle="tab" aria-expanded="true"><b>NANO</b><span class="pull-right">&nbsp;&nbsp;&nbsp;0</span></a></li>
 											<li role="presentation" class=""><a href="#tabHistory" role="tab" data-toggle="tab" aria-expanded="true"><b>History</b></a></li>
 										</ul>
 										<!-- Tab panes -->
@@ -107,7 +110,12 @@
 								</div>
 								<div class="col-xs-2 text-center">
 									<h1>120</h1>
-									<p>Margin deposit</p>
+									<p>
+										Margin deposit
+										<div>
+											<a href="margins.html" type="button" class="btn btn-default btn-xs">Margin funding panel</a>
+										</div>
+									</p>
 								</div>
 								<div class="col-xs-2 text-center">
 									<h1>12340.2</h1>
@@ -224,37 +232,6 @@
 									</div>
 								</div>
 							
-							
-							
-									<div class="col-xs-12" style="margin-left:15px;padding-right:30px;">
-								<div class="panel panel-default" style="margin-bottom:5px;">
-										<div class="panel-heading text-center" style="padding:5px !important; height:34px !important;padding-left:20px !important; padding-top:10px !important;">
-											<h3 class="panel-title">
-												Margin deposit control panel
-											</h3>
-										</div>
-										<div class="panel-body" style="padding-bottom:0px;padding-top:10px;">
-											<div class="form-group">
-												<label for="input-Default" class="col-sm-2 control-label"><b>Deposit size</b><span class="text-muted f-s-12 clearfix">Margin are security your all futures open position</span></label>
-												<div class="col-sm-10">
-													<input type="text" id="range_07">
-												</div>
-											</div>
-
-											<div class="form-group text-right" style="margin-top:75px;">
-												<button type="button" class="btn btn-success" style="width:100%;">Apply changes</button>
-											</div>
-											
-										</div>
-										<div>
-											<div class="alert alert-info" role="alert">
-												* Note! All change apply to margin deposit are taken once at minute.
-											</div>
-										
-										
-										</div>
-									</div>
-								</div>
 							
 							
 							</div>

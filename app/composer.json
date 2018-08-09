@@ -1,0 +1,14 @@
+{
+    "require": {
+        "slim/slim": "^3.10",
+        "react/react": "^0.4.2",
+        "predis/predis": "^1.1",
+        "ramsey/uuid": "^3.8",
+        "slim/twig-view": "^2.4",
+        "phpfastcache/phpfastcache": "^7.0",
+        "oleh-ozimok/php-centrifugo": "^2.0",
+        "zf1/zend-db": "^1.12",
+        "zf1/zend-json": "^1.12",
+        "zf1/zend-registry": "^1.12"
+    }
+}
