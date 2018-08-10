@@ -12,20 +12,20 @@ echo "     ---| IndexTrade.Exchange Platform via CoinIndex Team with LOVE |--- \
 echo "Starting at: " . date('r') . "\n";
 echo "Starting Trade Master...\n";
 
+$ch = 0;
+$pair = 'XXX/USDT';
+
 if (!empty($argv[1])){
 	$ch = trim($argv[1]); //какой канал слушаем  
 }
 
-if (empty($ch))	$ch = 0;
+if (!empty($argv[2])){
+	$pair = strtoupper( trim($argv[2]) ); //какой инструмент
+}
 
-echo "\nChannel: " . $ch . "\n\n";
+echo "\nChannel: " . $ch . ", Pair: ".$pair."\n\n";
 
 //$redis = initRedis();
-
-//возвращает время с точностью до микросекунд
-function t(){
-	return floatval( microtime(true) * 10000 );
-}
 
 //базовая проверка ордера
 function checkOrder($json){
@@ -244,6 +244,41 @@ function updateBook($order, $action, &$book, &$reportsQueue, $mode = 'normal'){
 	
 	
 	return true;	
+}
+
+//упрощенная версия, обирает ордер по id
+function cancelOrderById($orderId, &$book){
+	if (array_key_exists($orderId, $book['ORDERS'])){
+		$r = $book['ORDERS'][ $orderId ];
+		$ts = t(); // intval($r['ts']*10000);
+		
+		unset( $book['ORDERS'][ $orderId ] );
+		
+		$tmp = $book['BOOK'][ $r['side'] ][ $r['price'] ][ $ts ];
+			
+			if (is_array($tmp)){					
+				$book['BOOK'][ $r['side'] ][ $r['price'] ][ $ts ] = array_filter($tmp, function($i, $v){
+					if ($v === $orderId)
+						return false;
+					else
+						return true;
+				}, ARRAY_FILTER_USE_BOTH);				
+			}
+			
+			if (empty($book['BOOK'][ $r['side'] ][ $r['price'] ][ $ts ])){
+				unset( $book['BOOK'][ $r['side'] ][ $r['price'] ][ $ts ] );
+			}
+
+			if (empty($book['BOOK'][ $r['side'] ][ $r['price'] ])){
+				unset( $book['BOOK'][ $r['side'] ][ $r['price'] ] );
+			}				
+					
+		$book['STAT'][ $r['side'] ]['orders']--;
+		$book['STAT'][ $r['side'] ]['volume'] = $book['STAT'][ $r['side'] ]['volume'] - $r['amount'];
+	
+	}
+	
+	return true;
 }
 
 function procMarketView(&$book, $countItems = 10){
@@ -886,33 +921,49 @@ echo "Book loaded: " . count($book['ORDERS']) . " orders\n";
 
 
 //таймер берет с очереди новую задачу и обрабатывает ее (добавление или удаление ордера или команда)
-$loop->addPeriodicTimer(0.05, function() use (&$redis, &$bookStatus, &$reportsQueue, &$book){
+$loop->addPeriodicTimer(0.1, function() use (&$redis, &$bookStatus, &$pair, &$ch, &$reportsQueue, &$book){
 	if ($bookStatus === 'freez') return;
 	
-	$tmp = $redis->lpop('INDEXTRDADE_NEW_ORDERS_CH0');
+	//нужно подписаться на парралельно два канала - с отменами и новыми ордерами 	
+	// INDEXTRDADE_CANCEL_ORDERS_' . $order['pair']
+	$cancelQueue = $redis->llen( 'INDEXTRDADE_CANCEL_ORDERS_' . $pair );
+	
+	if (!empty($cancelQueue)){
+		echo "Cancel order queue length: " . $cancelQueue . "\n";
+		
+		$cq = $redis->lrange( 'INDEXTRDADE_CANCEL_ORDERS_' . $pair, 0, $cancelQueue );
+		
+		if (!empty($cq)){
+			foreach($cq as $orderId){
+				//перебираем все ордера которые нужно удалить 
+				cancelOrderById($orderId, $book);
+			}
+		}
+	}
+	
+	$tmp = $redis->lpop('INDEXTRDADE_NEW_ORDERS_'.$pair.'_CH' . $ch);
 	
 	if (!empty($tmp)){
 	
 		$cmd = json_decode($tmp, true, 16);
 		
-		if ($cmd['act'] == 'ADD'){
-			$checkResult = checkOrder( $cmd['body'] );
+		$checkResult = checkOrder( $cmd );
 			
-			if ($checkResult !== true){
-				//echo $checkResult . " :: ";
+		if ($checkResult !== true){
+			//echo $checkResult . " :: ";
 				
-				$report = Array('type' => 'REJECT', 'msg' => $checkResult, 'orderID' => $cmd['body']['id'], 'ts' => t());
+			$report = Array('type' => 'REJECT', 'msg' => $checkResult, 'orderID' => $cmd['id'], 'ts' => t());
 		
-				$reportsQueue[] = $report;
-			}
-			else	
-				procOrder($redis, $cmd['body'], $book, $reportsQueue);
+			$reportsQueue[] = $report;
 		}
-		else
-		if ($cmd['act'] == 'REM'){
-			updateBook($cmd['body'], 'REM', $book, $reportsQueue);
+		else {	
+			echo $tmp . "\n";
+			
+			procOrder($redis, $cmd, $book, $reportsQueue);	
+			
 		}
 	}
+	
 });
 
 
