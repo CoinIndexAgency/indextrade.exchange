@@ -12,6 +12,8 @@ echo "     ---| IndexTrade.Exchange Platform via CoinIndex Team with LOVE |--- \
 echo "Starting at: " . date('r') . "\n";
 echo "Starting Order Master...\n\n";
 
+$log = initLog('idxtOrdersMaster');
+
 /**
 	По сути, это фронт-энд внутренних систем. 
 	Он периодически проверяет очередь новых ордеров, берет их, проводит все базовые проверки
@@ -20,6 +22,32 @@ echo "Starting Order Master...\n\n";
 
 
 **/
+
+//сохраняет репорт в очереди в SSDB (в JSON-формате)
+function sendExecutionReport($ssdb = null, $report = null, $log = null){
+	if ($ssdb == null || empty($report))
+		return false;
+	
+	try{ 
+		$tmp = json_encode($report); 
+		
+		if (empty($tmp) || !empty(json_last_error())){
+			$log->error( json_last_error() );
+			return false;
+		}
+		
+		$ssdb->qpush_back('INDEXTRDADE_EXECUTION_REPORTS', $tmp);
+		
+		return true;
+	
+	}catch(Exception $e){
+		$log->error( $e );
+		
+		return false;
+	}
+}
+
+
 
 //Проверка юзера, что он может ставить ордер и т.п. Проверка аккаунта 
 //@return Boolean TRUE if all check passed, FALSE is no
@@ -50,32 +78,32 @@ function checkUser($db = null, $order = null){
 //Проверка инструмента
 //@return Boolean TRUE if all check passed, FALSE is no
 function checkTradingPair($db = null, $order = null){
-	if (empty($order)) return false;
+	if (empty($order)) return 'Empty order';
 	
 	$uid = intval($order['uid']);
 	$pair = strtoupper( strval( $order['pair'] ) );
 	$type = strtoupper( strval( $order['type'] ) );
 	$exec = strtoupper( strval( $order['exec'] ) );
 	
-	if (empty($uid) || empty($pair) || empty($type) || empty($exec)) return false;
+	if (empty($uid) || empty($pair) || empty($type) || empty($exec)) return 'Empty required field (pair, type or exec)';
 	
 	//проверим существование торговой пары  
 	$pairStatus = $db->fetchOne('SELECT pair_status FROM exchange_pairs_tbl WHERE pair_name = "'.$pair.'" LIMIT 1');
 	
 	if (empty($pairStatus) || $pairStatus != 'traded')
-		return false;
+		return 'Pair not traded';
 	
 	//проверка, какие типы ордеров и исполнения разрешены для этой торговой пары 
 	$pairOrderTypeStatus = $db->fetchOne('SELECT order_type_rule FROM exchange_pairs_order_types_tbl WHERE pair_name = "'.$pair.'" AND order_type = "'.$type.'" LIMIT 1');
 	
 	if (empty($pairOrderTypeStatus) || $pairOrderTypeStatus !== 'ALLOW')
-		return false;
+		return 'Order type is disallowed';
 	
 	//проверка типа исполнения 
 	$execOrderTypeStatus = $db->fetchOne('SELECT exec_type_rule FROM exchange_pairs_exec_types_tbl WHERE pair_name = "'.$pair.'" AND exec_type = "'.$exec.'" LIMIT 1');
 	
 	if (empty($execOrderTypeStatus) || $execOrderTypeStatus !== 'ALLOW')
-		return false;
+		return 'Exec type is disallowed';
 	
 	//ну, базово вроде ОК
 	return true;	
@@ -204,7 +232,7 @@ function addToGlobalOrderList($db, $order, $fee){
 	
 	try {
 		$db->query($sql, Array(
-			$order['uuid'],
+			$order['id'],
 			$pairId,
 			$order['uid'],
 			$order['type'],
@@ -237,9 +265,167 @@ function addToGlobalOrderList($db, $order, $fee){
 }
 
 
-$z = 0;
-$client = initRedis();
+$runtimeStats = Array(
+	'processingStart'		=> date(),
+	'totalOrdersProcessed' 	=> 0,
+	'totalOrdersRejected'  	=> 0,
+	'totalEmptyLoops'  		=> 0,
+	'lastOrdersPipelineProcessingStats' => Array(), //последние 100 обработанных ордеров, время
+	'avgOrderProcessedBy'	=> 0
+);
+//$client = initRedis();
 
+
+$loop->addPeriodicTimer(2, function() use (&$db, &$redis, &$ssdb, &$log, &$runtimeStats){
+	//$log->info('Timer loop run');
+	
+	//пробуем получить один элемент
+	$tmp = $redis->lpop('INDEXTRDADE_NEW_ORDERS_CH0'); //'INDEXTRDADE_ACCEPTED_ORDERS');
+	
+	if (empty($tmp)){
+		$runtimeStats['totalEmptyLoops']++;
+		return; //нет новых ордеров 
+	}
+	
+	$z = $runtimeStats['totalOrdersProcessed'];
+	$z++;
+	$t0 = microtime(true);
+	
+	if (!empty($tmp) && is_string($tmp)){
+		//вроде ордер 
+		$orderPacket = json_decode($tmp, true, 16);
+		
+		if (empty($orderPacket) || !empty(json_last_error())){
+			//создать екзекьюшинРепорт 		
+			$report = Array('type' => 'REJECT', 'msg' => 'ParseError: ' . json_last_error(), 'orderID' => null, 'raw' => $tmp, 'ts' => t());
+			
+			sendExecutionReport($ssdb, $report, $log);
+			
+			$log->error('JSON Parse error: ' + json_last_error(), Array( $tmp ));
+			return;
+		}
+		
+		$order = $orderPacket['body'];
+		
+		//DEBUG 
+		$order['uid'] = 1;
+		
+		$log->info( $order['id'] . ' | ' . round( (microtime(true) - $t0)*1000, 3) . " :: ".$orderPacket['act']." :: Decoding order", $order);
+
+		//Обработка ордера перед сохранением в БД
+		$tz = microtime(true);
+		//1. Проверка юзера
+		$userCheck = checkUser($db, $order);
+		
+	//echo $z . '| ' . round( (microtime(true) - $tz)*1000, 3) . " :: ";
+	//$log->info( $order['id'] . ' | ' . round( (microtime(true) - $t0)*1000, 3) . " :: " );
+	//$t['userCheck'] = round( (microtime(true) - $t['start'])*1000, 3);
+	
+		if ($userCheck !== true){
+			$log->error( $order['id'] . ' | ' . round( (microtime(true) - $tz)*1000, 3) . " :: User checking FAIL");
+			
+			$report = Array('type' => 'REJECT', 'msg' => 'User checking failure', 'orderID' => $order['id'], 'ts' => t());
+			
+			sendExecutionReport($ssdb, $report, $log);
+
+			return;		
+		}
+		else
+			$log->info( $order['id'] . ' | ' . round( (microtime(true) - $tz)*1000, 3) . " :: User checking OK" );
+		
+		
+		$tz = microtime(true);
+		//2. Проверка инструмента
+		$pairCheck = checkTradingPair($db, $order);
+	
+		if ($pairCheck !== true){
+			$log->error( $order['id'] . ' | ' . round( (microtime(true) - $tz)*1000, 3) . " :: Trading pair checking FAIL :: " . $pairCheck);
+			
+			$report = Array('type' => 'REJECT', 'msg' => 'Trading pair checking failure', 'orderID' => $order['id'], 'ts' => t());
+			
+			sendExecutionReport($ssdb, $report, $log);
+
+			return;		
+		}
+		else
+			$log->info( $order['id'] . ' | ' . round( (microtime(true) - $tz)*1000, 3) . " :: Trading pair checking OK" );
+		
+		
+		$tz = microtime(true);
+		//3. Проверка границ ордера (размер и т.п.)
+		$limitsCheck = checkLimits($db, $order);
+	
+		//echo $z . '| ' . round( (microtime(true) - $tz)*1000, 3) . " :: ";
+		//$t['limitsCheck'] = round( (microtime(true) - $t['start'])*1000, 3);
+	
+		if ($limitsCheck !== true){
+			$log->error( $order['id'] . ' | ' . round( (microtime(true) - $tz)*1000, 3) . " :: Limits checking FAIL. Reason: " . $limitsCheck);
+			
+			$report = Array('type' => 'REJECT', 'msg' => 'Limits checking failure - ' . $limitsCheck, 'orderID' => $order['id'], 'ts' => t());
+			
+			sendExecutionReport($ssdb, $report, $log);
+
+			return;		
+		}
+		else
+			$log->info( $order['id'] . ' | ' . round( (microtime(true) - $tz)*1000, 3) . " :: Limits checking OK" );
+		
+		
+		$tz = microtime(true);
+		//3.1 Вычисляем комиссии
+		$orderFee = calcOrderFee($db, $order);
+		
+		if (is_string($orderFee)){
+			$log->error( $order['id'] . ' | ' . round( (microtime(true) - $tz)*1000, 3) . " :: Fee calc error. Reason: " . $orderFee);
+			
+			$report = Array('type' => 'REJECT', 'msg' => 'Fee calc error - ' . $orderFee, 'orderID' => $order['id'], 'ts' => t());
+			
+			sendExecutionReport($ssdb, $report, $log);
+			
+			return;
+		}
+		
+		$log->info( $order['id'] . ' | ' . round( (microtime(true) - $tz)*1000, 3) . " :: Trade fee: " . $orderFee . " :: Price: ".($order['price']/1000000000).", amount: ".($order['amount']/1000000000).", total: ".(($order['price']/1000000000)*($order['amount']/1000000000)) );
+	
+		$tz = microtime(true);
+		//4. Запись в глобальный список ордеров 
+		$db_id = addToGlobalOrderList($db, $order, $orderFee);
+		
+		if (is_string($db_id)){
+			$log->error( $order['id'] . ' | ' . round( (microtime(true) - $tz)*1000, 3) . " :: Save to main DB error. Reason: " . $db_id);
+			
+			$report = Array('type' => 'REJECT', 'msg' => 'Save to main DB error - ' . $db_id, 'orderID' => $order['id'], 'ts' => t());
+			
+			sendExecutionReport($ssdb, $report, $log);
+
+			return;
+		}
+		else
+			$log->info( $order['id'] . ' | ' . round( (microtime(true) - $tz)*1000, 3) . " :: Order placing to book OK" );
+		
+		/**
+		//5. Нотификация - сервиса ордербуков и т.п.
+		if (!$client->isConnected()){
+			$client->connect();
+			
+			usleep(1000);
+			
+			if (!$client->isConnected())
+				die('ERROR: No connection to Redis');
+		}
+		
+		$client->publish('INDEXTRDADE_ORDERBOOK_UPDATE', $tmp['pair'] . ':' . $order['uuid']);
+		**/
+	}
+	
+	
+	
+});
+
+
+
+
+/**
 while(true){
 	$z++;
 	
@@ -356,17 +542,11 @@ while(true){
 }
 
 
+**/
 
 
-
-
-
-
-
-
-
-
-
+$log->info('Main loop are starting...');
+$loop->run();
 
 echo "\n\n";
 die( "Finish him! " . date('r') . "\n" );

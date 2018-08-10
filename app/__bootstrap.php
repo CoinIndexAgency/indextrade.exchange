@@ -5,22 +5,30 @@ error_reporting(E_ERROR | E_WARNING | E_PARSE);// & ~E_NOTICE);
 
 require_once __DIR__ . '/vendor/autoload.php';
 require_once __DIR__ . '/libs/SSDB.php';
+require_once __DIR__ . '/libs/idxtLibs.php';
 
 use Zend\Db;
 use Zend\Db\Adapter\Mysqli;
 use Predis;
 use Ramsey\Uuid;
+use Monolog\Logger;
+use Monolog\Handler\StreamHandler;
+use Monolog\Handler\ProcessHandler;
+use Monolog\Handler\StdoutHandler;
+use Monolog\Handler\ErrorLogHandler;
+
 
 $db 	= null;
 $redis 	= null;
 $ssdb 	= null;
+$log 	= null;
 	
 	function initDb(){
 		//подключение к базе данных
 		$options = array(
-					\Zend_Db::AUTO_QUOTE_IDENTIFIERS => true,
-					\Zend_Db::ALLOW_SERIALIZATION => true,
-					\Zend_Db::AUTO_RECONNECT_ON_UNSERIALIZE => true
+				\Zend_Db::AUTO_QUOTE_IDENTIFIERS => true,
+				\Zend_Db::ALLOW_SERIALIZATION => true,
+				\Zend_Db::AUTO_RECONNECT_ON_UNSERIALIZE => true
 		);
 
 	
@@ -61,9 +69,19 @@ $ssdb 	= null;
 		return $ssdb;
 	}
 	
+	function initLog($name = 'IDXT'){
+		$log = new Logger($name);
+		$log->pushHandler(new StreamHandler('/var/log/'.strtolower($name).'.log', Logger::DEBUG));
+		//$log->pushHandler(new ProcessHandler(), Logger::DEBUG);
+		$log->pushHandler(new ErrorLogHandler());
+		
+		return $log;
+	}
 	
 $db 	= initDb();
 $redis 	= initRedis(); 
 $ssdb 	= initSSDB();  
+
+
 
 $loop = \React\EventLoop\Factory::create();
