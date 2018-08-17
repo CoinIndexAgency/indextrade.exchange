@@ -47,11 +47,17 @@ class ComposerStaticInit3a577e976ba5e37fbd1baaac20aa8227
         'P' => 
         array (
             'Psr\\SimpleCache\\' => 16,
+            'Psr\\Log\\' => 8,
             'Psr\\Http\\Message\\' => 17,
             'Psr\\Container\\' => 14,
             'Psr\\Cache\\' => 10,
             'Predis\\' => 7,
             'Phpfastcache\\' => 13,
+        ),
+        'M' => 
+        array (
+            'Monolog\\' => 8,
+            'MessagePack\\' => 12,
         ),
         'I' => 
         array (
@@ -148,6 +154,10 @@ class ComposerStaticInit3a577e976ba5e37fbd1baaac20aa8227
         array (
             0 => __DIR__ . '/..' . '/psr/simple-cache/src',
         ),
+        'Psr\\Log\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/psr/log/Psr/Log',
+        ),
         'Psr\\Http\\Message\\' => 
         array (
             0 => __DIR__ . '/..' . '/psr/http-message/src',
@@ -167,6 +177,14 @@ class ComposerStaticInit3a577e976ba5e37fbd1baaac20aa8227
         'Phpfastcache\\' => 
         array (
             0 => __DIR__ . '/..' . '/phpfastcache/phpfastcache/lib/Phpfastcache',
+        ),
+        'Monolog\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/monolog/monolog/src/Monolog',
+        ),
+        'MessagePack\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/rybakit/msgpack/src',
         ),
         'Interop\\Container\\' => 
         array (

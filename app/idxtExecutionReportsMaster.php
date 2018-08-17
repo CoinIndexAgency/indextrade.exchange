@@ -40,6 +40,11 @@ $loop->addPeriodicTimer(0.20, function() use (&$db, &$redis, &$ssdb, &$log){
 			return;
 		}
 		
+		if (empty($res['ts'])){
+			$log->error( 'Invalud Execution report, missing timestamp' );
+			return;
+		}
+		
 		$_raw = '';
 		
 		if (array_key_exists('raw', $res) && !empty($res['raw'])){
@@ -47,13 +52,22 @@ $loop->addPeriodicTimer(0.20, function() use (&$db, &$redis, &$ssdb, &$log){
 		}
 		
 		$db->beginTransaction();
-		
-			$db->query('INSERT INTO exchange_orders_execution_reports_tbl SET 
+			//$log->info('Starting write execution report...');
+			try {
+			
+			$sql = 'INSERT INTO exchange_orders_execution_reports_tbl SET 
 							order_id = "'.$res['orderID'].'", 
 							report_ts = '.$res['ts'].', 
 							report_type = "'.$res['type'].'", 
 							report_msg = "'.$res['msg'].'", 
-							report_data = '.$db->quote($_raw).'  ');
+							report_data = '.$db->quote($_raw).' ';
+							
+			//if ($res['type'] == 'FILL' || $res['type'] == 'CLOSE'){
+			//	echo "\n\n" . $sql . "\n\n";
+			//}
+							
+							
+			$db->query( $sql );
 			
 			//а реакции на разные репорты? 
 			switch($res['type']){
@@ -67,13 +81,31 @@ $loop->addPeriodicTimer(0.20, function() use (&$db, &$redis, &$ssdb, &$log){
 					//он отменяеться уже в OrdersMaster
 				}
 				//ордер добавлен в бук 
+				case 'SAVED' : {
+					
+				}
+				//ордер добавлен в бук 
 				case 'PLACED' : {
 					
 				}
+				//этапы проверки
+				case 'CHECK' : {
+					
+				}
 				//другие типы репортов
-				
+				default: {
+					
+				}				
 			} 
-		
+			
+			}catch(Exception $e){
+				$log->error( $e );
+				$log->info( $sql );
+				
+				$db->rollBack();
+				
+				return false;
+			}
 		
 		$db->commit();
 		

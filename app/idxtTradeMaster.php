@@ -97,64 +97,58 @@ function procOrder($redis, $order, &$book, &$reportsQueue){
 		updateBook($order, 'ADD', $book, $reportsQueue);
 	}
 	
-	
-	//printMarketView($book, $reportsQueue); 
-	
-	
-	//тестовая проверка, потом убрать 
-	//if (checkTopBook($book) === true){
-		//printMarketView($book, $reportsQueue); 
-		//echo "\n==============\n";
-		
-		while(checkTopBook($book) === true){
-			$res = executeTopBook($book, $reportsQueue);
-			
-			if ($res === true){
-				//после этого перестроить весь бук
-				//!TODO: оптимизировать или убрать вообще потом :) 
-				rebuildBook($book, $reportsQueue);
-			}
-			
-			usleep(10);
-		}
-		
-		//printMarketView($book, $reportsQueue); 
-		//echo "\n";
-	//}
-	
-	
-	
-	
-	
-	/*
-	//если проверка показала, что топ можно выполнить
-	//if (checkTopBook($book) === true)
 	while(checkTopBook($book) === true){
-		executeTopBook($book, $reportsQueue);
+		$res = executeTopBook($book, $reportsQueue);
+			
+		if ($res === true){
+			//после этого перестроить весь бук
+			//!TODO: оптимизировать или убрать вообще потом :) 
+			rebuildBook($book, $reportsQueue);
+		}
+			
 		usleep(10);
 	}
-	*/
-	
-	
-	if (!empty($reportsQueue)){
-		procReports($redis, $reportsQueue);
-	}
-	
+
 	return true;
 }
 
 //обрабатывает репорты 
-function procReports(&$redis, &$reportsQueue){
+function procReports(&$ssdb, &$reportsQueue){
+	if (empty($reportsQueue))
+		return false;
 	
-	//$z = $reportsQueue;
-	//var_dump( $z );
-	$reportsQueue = [];	 
+	$_qq = Array();
 	
-	return true;
+	foreach($reportsQueue as $q){
+		$tmp = json_encode($q); 
+		
+		if (empty($tmp) || !empty(json_last_error())){
+			continue; //пропускаем?
+		}
+		
+		$_qq[] = $tmp;
+	}
+	
+	if (!empty($_qq) && !empty($ssdb)){
+		try{
+			
+			$ssdb->qpush_back('INDEXTRDADE_EXECUTION_REPORTS', $_qq);
+			
+			$reportsQueue = Array();
+			
+			return true;
+			
+		}catch(Exception $e){
+			var_dump( $e );
+			
+			return false;
+		}
+	}
+	
+	return false;
 }
 
-
-
+//удаляет ордер с бука
 function remOrder(&$redis, $order, &$book, &$reportsQueue){
 	$id = $order['id'];
 	$pair = $order['pair'];
@@ -180,6 +174,11 @@ function updateBook($order, $action, &$book, &$reportsQueue, $mode = 'normal'){
 		$book['BOOK'][ $order['side'] ][ $order['price'] ][ $ts ][] = $id;
 				
 		$book['ORDERS'][ $id ] = $order;
+		
+		if ($mode != 'rebuild'){
+			$report = Array('type' => 'PLACED', 'msg' => 'Order placed to trade system', 'orderID' => $id, 'ts' => $ts);
+			$reportsQueue[] = $report;	
+		}
 	}
 	else 
 	if ($action == 'REM') {
@@ -212,6 +211,8 @@ function updateBook($order, $action, &$book, &$reportsQueue, $mode = 'normal'){
 			$book['STAT'][ $r['side'] ]['orders']--;
 			$book['STAT'][ $r['side'] ]['volume'] = $book['STAT'][ $r['side'] ]['volume'] - $r['amount'];
 		
+			$report = Array('type' => 'REMOVE', 'msg' => 'Order removed from trade system', 'orderID' => $id, 'ts' => $ts);
+			$reportsQueue[] = $report;
 		}
 	}
 	
@@ -228,9 +229,10 @@ function updateBook($order, $action, &$book, &$reportsQueue, $mode = 'normal'){
 		//procMarketView($book, 10);
 			
 		$z = t() - $ts;
-			
+		
+		/**
 		if ($action === 'ADD'){
-			$report = Array('type' => 'BOOK', 'msg' => 'Order booked', 'orderID' => $id, 'ts' => $ts);
+			$report = Array('type' => 'PLACED', 'msg' => 'Order booked', 'orderID' => $id, 'ts' => $ts);
 			$reportsQueue[] = $report;
 				
 //t			echo $z . " mcs. :: ADD " . $order['side'] . " :: " . $order['type'] ." " . ($order['amount']/1000000000) . "@" . ($order['price']/1000000000) . " :: OrderID: " . $id . "\n"; 
@@ -240,6 +242,7 @@ function updateBook($order, $action, &$book, &$reportsQueue, $mode = 'normal'){
 			$report = Array('type' => 'CANCEL', 'msg' => 'Order canceled', 'orderID' => $id, 'ts' => $ts);
 			$reportsQueue[] = $report;
 		}
+		**/
 	}
 	
 	
@@ -247,7 +250,7 @@ function updateBook($order, $action, &$book, &$reportsQueue, $mode = 'normal'){
 }
 
 //упрощенная версия, обирает ордер по id
-function cancelOrderById($orderId, &$book){
+function cancelOrderById($orderId, &$book, &$reportsQueue){
 	if (array_key_exists($orderId, $book['ORDERS'])){
 		$r = $book['ORDERS'][ $orderId ];
 		$ts = t(); // intval($r['ts']*10000);
@@ -275,7 +278,9 @@ function cancelOrderById($orderId, &$book){
 					
 		$book['STAT'][ $r['side'] ]['orders']--;
 		$book['STAT'][ $r['side'] ]['volume'] = $book['STAT'][ $r['side'] ]['volume'] - $r['amount'];
-	
+		
+		$report = Array('type' => 'CANCEL', 'msg' => 'Order canceled', 'orderID' => $orderId, 'ts' => $ts);
+		$reportsQueue[] = $report;	
 	}
 	
 	return true;
@@ -576,17 +581,19 @@ function realExecuteOrders(&$book, $buyOrderId, $sellOrderId, &$reportsQueue){
 							'msg' => 'Executing', 
 							'orderID' => $buyOrderId, 
 							'ts' => t(), 
-							'price' => $realPrice, //$buy['price'],
-							'volume' => $buy['amount'],
-							'fee'	 => $buyFee,
-							'cPartyOrderId' => $sellOrderId
+							'raw' => Array(
+								'price' => $realPrice, //$buy['price'],
+								'volume' => $buy['amount'],
+								'fee'	 => $buyFee,
+								'cPartyOrderId' => $sellOrderId
+							)
 					);
 		$reportsQueue[] = $reportBuy;
 		
 		$reportClose = Array( 'type' => 'CLOSE', 
 							'msg' => 'Closed by full filled', 
 							'orderID' => $buyOrderId, 
-							'ts' => $ts
+							'ts' => t()
 					);
 		$reportsQueue[] = $reportClose;
 		
@@ -594,10 +601,12 @@ function realExecuteOrders(&$book, $buyOrderId, $sellOrderId, &$reportsQueue){
 							'msg' => 'Executing', 
 							'orderID' => $sellOrderId, 
 							'ts' => t(), 
-							'price' => $realPrice, //$buy['price'],
-							'volume' => $buy['amount'],
-							'fee'	=> $sellFee,
-							'cPartyOrderId' => $buyOrderId
+							'raw' => Array(
+								'price' => $realPrice, //$buy['price'],
+								'volume' => $buy['amount'],
+								'fee'	=> $sellFee,
+								'cPartyOrderId' => $buyOrderId
+							)
 					);
 		$reportsQueue[] = $reportSell;
 		
@@ -630,12 +639,14 @@ function realExecuteOrders(&$book, $buyOrderId, $sellOrderId, &$reportsQueue){
 		//2. Sell ордер partial fill и остаеться 
 		$reportBuy = Array( 'type' => 'FILL', 
 							'msg' => 'Executing', 
-							'orderID' => $buyOrderId, 
+							'orderID' => $buyOrderId,
 							'ts' => t(), 
-							'price' => $realPrice, //$buy['price'],
-							'volume' => $buy['amount'],
-							'fee'	=> $buyFee,
-							'cPartyOrderId' => $sellOrderId
+							'raw' => Array(
+								'price' => $realPrice, //$buy['price'],
+								'volume' => $buy['amount'],
+								'fee'	=> $buyFee,
+								'cPartyOrderId' => $sellOrderId
+							)
 					);
 		$reportsQueue[] = $reportBuy;
 		
@@ -650,10 +661,12 @@ function realExecuteOrders(&$book, $buyOrderId, $sellOrderId, &$reportsQueue){
 							'msg' => 'Executing', 
 							'orderID' => $sellOrderId, 
 							'ts' => t(), 
-							'price' => $realPrice, //$buy['price'],
-							'volume' => $buy['amount'],
-							'fee' => $sellFee,
-							'cPartyOrderId' => $buyOrderId
+							'raw' => Array(
+								'price' => $realPrice, //$buy['price'],
+								'volume' => $buy['amount'],
+								'fee' => $sellFee,
+								'cPartyOrderId' => $buyOrderId
+							)
 					);
 		$reportsQueue[] = $reportSell;
 		
@@ -687,10 +700,12 @@ function realExecuteOrders(&$book, $buyOrderId, $sellOrderId, &$reportsQueue){
 							'msg' => 'Executing', 
 							'orderID' => $buyOrderId, 
 							'ts' => t(), 
-							'price' => $realPrice, //$buy['price'],
-							'volume' => $sell['amount'],
-							'fee' => $buyFee,
-							'cPartyOrderId' => $sellOrderId
+							'raw' => Array(
+								'price' => $realPrice, //$buy['price'],
+								'volume' => $sell['amount'],
+								'fee' => $buyFee,
+								'cPartyOrderId' => $sellOrderId
+							)
 					);
 		$reportsQueue[] = $reportBuy;
 		
@@ -698,10 +713,12 @@ function realExecuteOrders(&$book, $buyOrderId, $sellOrderId, &$reportsQueue){
 							'msg' => 'Executing', 
 							'orderID' => $sellOrderId, 
 							'ts' => t(), 
-							'price' => $realPrice, //$buy['price'],
-							'volume' => $sell['amount'],
-							'fee' => $sellFee,
-							'cPartyOrderId' => $buyOrderId
+							'raw' => Array(
+								'price' => $realPrice, //$buy['price'],
+								'volume' => $sell['amount'],
+								'fee' => $sellFee,
+								'cPartyOrderId' => $buyOrderId
+							)
 					);
 		$reportsQueue[] = $reportSell;
 		
@@ -941,7 +958,7 @@ $loop->addPeriodicTimer(0.1, function() use (&$redis, &$bookStatus, &$pair, &$ch
 		}
 	}
 	
-	$tmp = $redis->lpop('INDEXTRDADE_NEW_ORDERS_'.$pair.'_CH' . $ch);
+	$tmp = $redis->lpop('INDEXTRDADE_NEW_ORDERS_'.$pair); // .'_CH' . $ch
 	
 	if (!empty($tmp)){
 	
@@ -978,6 +995,13 @@ $loop->addPeriodicTimer(10, function() use ($redis, &$book, &$reportsQueue){
 	
 	printMarketView($book, $reportsQueue); 
 	return;
+});
+
+//отправляем репорты асинхронно 
+$loop->addPeriodicTimer(1, function() use (&$ssdb, &$reportsQueue){
+	if (!empty($reportsQueue)){
+		procReports($ssdb, $reportsQueue);
+	}
 });
 
 

@@ -261,7 +261,7 @@ function calcOrderFee($db, $order){
 		return 'Empty fee calculated';
 }
 
-function addToGlobalOrderList($db, $ssdb, $order, $fee){
+function addToGlobalOrderList($db, $redis, $order, $fee){
 	$pairId = $db->fetchOne('SELECT _id FROM exchange_pairs_tbl WHERE pair_name = "'.$order['pair'].'" LIMIT 1');
 	$sql = 'INSERT INTO exchange_real_orders_tbl SET 
 				order_uuid	= ?,
@@ -336,8 +336,6 @@ $runtimeStats = Array(
 
 
 $loop->addPeriodicTimer(2, function() use (&$db, &$redis, &$ssdb, &$log, &$runtimeStats){
-	//$log->info('Timer loop run');
-	
 	//пробуем получить один элемент
 	$tmp = $redis->lpop('INDEXTRDADE_NEW_ORDERS_CH0'); //'INDEXTRDADE_ACCEPTED_ORDERS');
 	
@@ -367,6 +365,9 @@ $loop->addPeriodicTimer(2, function() use (&$db, &$redis, &$ssdb, &$log, &$runti
 		
 		$order = $orderPacket['body'];
 		
+		$report = Array('type' => 'CHECK', 'msg' => 'Decoding protocol and parse format', 'orderID' => $order['id'], 'raw' => $tmp, 'ts' => t());
+		sendExecutionReport($ssdb, $report, $log);
+		
 		//DEBUG 
 		$order['uid'] = 1;
 		
@@ -392,6 +393,9 @@ $loop->addPeriodicTimer(2, function() use (&$db, &$redis, &$ssdb, &$log, &$runti
 		else
 			$log->info( $order['id'] . ' | ' . round( (microtime(true) - $t0)*1000, 3) . " :: User checking OK" );
 		
+		$report = Array('type' => 'CHECK', 'msg' => 'User rights checking', 'orderID' => $order['id'], 'ts' => t());
+		sendExecutionReport($ssdb, $report, $log);
+		
 		//если это отмена ордера, то проверить валидность
 		if ($orderPacket['act'] == 'REM'){
 			$orderValidation = checkOrderValidity($db, $order);
@@ -410,7 +414,7 @@ $loop->addPeriodicTimer(2, function() use (&$db, &$redis, &$ssdb, &$log, &$runti
 				
 				if ($result === true){
 					$report = Array('type' => 'CANCEL', 'msg' => 'Order canceled by user', 'orderID' => $order['id'], 'ts' => t());
-			
+					
 					sendExecutionReport($ssdb, $report, $log);
 				}
 				
@@ -435,6 +439,8 @@ $loop->addPeriodicTimer(2, function() use (&$db, &$redis, &$ssdb, &$log, &$runti
 		else
 			$log->info( $order['id'] . ' | ' . round( (microtime(true) - $t0)*1000, 3) . " :: Trading pair checking OK" );
 		
+		$report = Array('type' => 'CHECK', 'msg' => 'Trading pair and market checking', 'orderID' => $order['id'], 'ts' => t());
+		sendExecutionReport($ssdb, $report, $log);
 		
 		//3. Проверка границ ордера (размер и т.п.)
 		$limitsCheck = checkLimits($db, $order);
@@ -454,6 +460,9 @@ $loop->addPeriodicTimer(2, function() use (&$db, &$redis, &$ssdb, &$log, &$runti
 		else
 			$log->info( $order['id'] . ' | ' . round( (microtime(true) - $t0)*1000, 3) . " :: Limits checking OK" );
 		
+		$report = Array('type' => 'CHECK', 'msg' => 'Limits checking', 'orderID' => $order['id'], 'ts' => t());
+		sendExecutionReport($ssdb, $report, $log);
+		
 		
 		//3.1 Вычисляем комиссии
 		$orderFee = calcOrderFee($db, $order);
@@ -467,6 +476,9 @@ $loop->addPeriodicTimer(2, function() use (&$db, &$redis, &$ssdb, &$log, &$runti
 			
 			return;
 		}
+		
+		$report = Array('type' => 'CHECK', 'msg' => 'Fee calculating', 'orderID' => $order['id'], 'ts' => t());
+		sendExecutionReport($ssdb, $report, $log);
 		
 		$log->info( $order['id'] . ' | ' . round( (microtime(true) - $t0)*1000, 3) . " :: Trade fee: " . $orderFee . " :: Price: ".($order['price']/1000000000).", amount: ".($order['amount']/1000000000).", total: ".(($order['price']/1000000000)*($order['amount']/1000000000)) );
 	
@@ -483,9 +495,9 @@ $loop->addPeriodicTimer(2, function() use (&$db, &$redis, &$ssdb, &$log, &$runti
 			return;
 		}
 		else {
-			$log->info( $order['id'] . ' | ' . round( (microtime(true) - $t0)*1000, 3) . " :: Order placing to book OK" );
+			$log->info( $order['id'] . ' | ' . round( (microtime(true) - $t0)*1000, 3) . " :: Order saved to book OK" );
 			
-			$report = Array('type' => 'PLACED', 'msg' => 'Order successfull placed to orderbook', 'orderID' => $order['id'], 'ts' => t());
+			$report = Array('type' => 'SAVED', 'msg' => 'Order successfull saved to orderbook', 'orderID' => $order['id'], 'ts' => t());
 			
 			sendExecutionReport($ssdb, $report, $log);
 		}
@@ -508,128 +520,6 @@ $loop->addPeriodicTimer(2, function() use (&$db, &$redis, &$ssdb, &$log, &$runti
 	
 	
 });
-
-
-
-
-/**
-while(true){
-	$z++;
-	
-	$tmp = $redis->blpop('INDEXTRDADE_ACCEPTED_ORDERS', 5);
-	
-	if ($tmp == null){
-		echo '.';
-		continue;
-	}
-	
-	$t['start'] = microtime(true);
-	
-	if (!empty($tmp) && count($tmp) == 2 && !empty($tmp[1])){
-		//вроде ордер 
-		$order = json_decode($tmp[1], true, 16);
-		
-		if (!empty(json_last_error())){
-			echo 'RedisERR:' . json_last_error_msg();
-			continue;
-		}
-		
-	echo $z . '| ' . round( (microtime(true) - $t['start'])*1000, 3) . " :: Decode order\n";
-		
-	//$t['decode'] = round( (microtime(true) - $t['start'])*1000, 3);
-		
-		//Обработка ордера перед сохранением в БД
-		$tz = microtime(true);
-		//1. Проверка юзера
-		$userCheck = checkUser($db, $order);
-		
-	echo $z . '| ' . round( (microtime(true) - $tz)*1000, 3) . " :: ";
-	
-	//$t['userCheck'] = round( (microtime(true) - $t['start'])*1000, 3);
-	
-		if ($userCheck !== true){
-			echo "ERROR: Order with uuid: " . $order['order_uuid'] . " checking FALSE (at user check)\n";
-			continue;			
-		}
-		else
-			echo "ORDER: " . $order['order_uuid']  . " user check: OK\n";
-		
-		$tz = microtime(true);
-		//2. Проверка инструмента
-		$pairCheck = checkTradingPair($db, $order);
-	
-	echo $z . '| ' . round( (microtime(true) - $tz)*1000, 3) . " :: ";
-	
-	//$t['pairCheck'] = round( (microtime(true) - $t['start'])*1000, 3);
-	
-		if ($pairCheck !== true){
-			echo "ERROR: Order with uuid: " . $order['order_uuid'] . " checking FALSE (at pair check)\n";
-			continue;			
-		}
-		else
-			echo "ORDER: " . $order['order_uuid']  . " pair check: OK\n";
-		
-		$tz = microtime(true);
-		//3. Проверка границ ордера (размер и т.п.)
-		$limitsCheck = checkLimits($db, $order);
-	
-	echo $z . '| ' . round( (microtime(true) - $tz)*1000, 3) . " :: ";
-	//$t['limitsCheck'] = round( (microtime(true) - $t['start'])*1000, 3);
-	
-		if ($limitsCheck !== true){
-			echo "ERROR: Order with uuid: " . $order['order_uuid'] . " limits checking FALSE (".$limitsCheck.")\n";
-			continue;			
-		}
-		else
-			echo "ORDER: " . $order['order_uuid']  . " limits check: OK\n";
-		
-		$tz = microtime(true);
-		//3.1 Вычисляем комиссии
-		$orderFee = calcOrderFee($db, $order);
-		
-		echo $z . '| ' . round( (microtime(true) - $tz)*1000, 3) . " :: ";	
-		
-		if (is_string($orderFee)){
-			echo "ERROR: calc fee error - " . $orderFee . "\n";
-			continue;
-		}
-	
-		echo "ORDER Fee: " . $orderFee . " :: Price: ".($order['price']/1000000000).", amount: ".($order['amount']/1000000000).", total: ".(($order['price']/1000000000)*($order['amount']/1000000000))." \n";
-	
-		$tz = microtime(true);
-		//4. Запись в глобальный список ордеров 
-		$db_id = addToGlobalOrderList($db, $order, $orderFee);
-		
-		echo $z . '| ' . round( (microtime(true) - $tz)*1000, 3) . " :: ";
-		
-		if (is_string($db_id)){
-			echo "ERROR while save to DB: " . $db_id . "\n";
-			continue;
-		}
-		else{
-			echo "ORDER PLACED to BOOK :: id = ".$db_id." with uuid = ".$order['uuid']."\n";
-		}
-		
-		//5. Нотификация - сервиса ордербуков и т.п.
-		if (!$client->isConnected()){
-			$client->connect();
-			
-			usleep(1000);
-			
-			if (!$client->isConnected())
-				die('ERROR: No connection to Redis');
-		}
-		
-		$client->publish('INDEXTRDADE_ORDERBOOK_UPDATE', $tmp['pair'] . ':' . $order['uuid']);
-	}
-	
-	//var_dump( $tmp );	
-	
-	sleep(1);
-}
-
-
-**/
 
 
 $log->info('Main loop are starting...');
