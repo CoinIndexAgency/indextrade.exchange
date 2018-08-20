@@ -24,7 +24,7 @@ $log = initLog('idxtReportsMaster');
 
 
 //Главный цикл обработки событий 
-$loop->addPeriodicTimer(0.20, function() use (&$db, &$redis, &$ssdb, &$log){
+$loop->addPeriodicTimer(0.1, function() use (&$db, &$redis, &$ssdb, &$log){
 	$res = $ssdb->qpop_front('INDEXTRDADE_EXECUTION_REPORTS', 1);
 	
 	if (!empty($res)){

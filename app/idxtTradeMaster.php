@@ -160,7 +160,6 @@ function remOrder(&$redis, $order, &$book, &$reportsQueue){
 	return true;
 }
 
-
 //обновляет локальную копию ордербука
 function updateBook($order, $action, &$book, &$reportsQueue, $mode = 'normal'){
 	$id = $order['id'];
@@ -175,7 +174,7 @@ function updateBook($order, $action, &$book, &$reportsQueue, $mode = 'normal'){
 				
 		$book['ORDERS'][ $id ] = $order;
 		
-		if ($mode != 'rebuild'){
+		if ($mode == 'normal'){
 			$report = Array('type' => 'PLACED', 'msg' => 'Order placed to trade system', 'orderID' => $id, 'ts' => $ts);
 			$reportsQueue[] = $report;	
 		}
@@ -211,8 +210,10 @@ function updateBook($order, $action, &$book, &$reportsQueue, $mode = 'normal'){
 			$book['STAT'][ $r['side'] ]['orders']--;
 			$book['STAT'][ $r['side'] ]['volume'] = $book['STAT'][ $r['side'] ]['volume'] - $r['amount'];
 		
-			$report = Array('type' => 'REMOVE', 'msg' => 'Order removed from trade system', 'orderID' => $id, 'ts' => $ts);
-			$reportsQueue[] = $report;
+			if ($mode == 'normal'){
+				$report = Array('type' => 'REMOVE', 'msg' => 'Order removed from trade system', 'orderID' => $id, 'ts' => $ts);
+				$reportsQueue[] = $report;
+			}
 		}
 	}
 	
@@ -920,21 +921,24 @@ $reportsQueue = Array(); //массив репортов, которые нуж�
 $book = buildBook();
 $marketView = Array();
 
-/**
+
 //начальная загрузка данных 
-$res = $redis->hgetall('INDEXTRDADE_ORDERS_XXX/USDT');
+$res = $ssdb->hgetall('INDEXTRDADE_LIVE_ORDERS_'.$pair);
 
-foreach($res as $x){
-	$z = json_decode($x, true, 16);
-	
-	$bookQueueOrders[ $z['id'] ] = $z;
+echo "Found: " . count($res) . " orders at snapshot. Try to restore orderbook\n\n";
 
-	//$book['ORDERS'][ $z['id'] ] = $z;
-	updateBook($z, 'ADD', $book);
+if (!empty($res)){
+	foreach($res as $x){
+		$z = json_decode($x, true, 16);
+		
+		if (!empty($z)){
+			$bookQueueOrders[ $z['id'] ] = $z;
+
+			updateBook($z, 'ADD', $book, $reportsQueue, 'restore');
+		}
+	}
 }
-
-echo "Book loaded: " . count($book['ORDERS']) . " orders\n";
-**/
+echo "Book snapshot restored: " . count($book['ORDERS']) . " orders\n";
 
 
 //таймер берет с очереди новую задачу и обрабатывает ее (добавление или удаление ордера или команда)

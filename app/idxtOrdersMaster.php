@@ -123,7 +123,10 @@ function cancelOrder($db = null, $redis = null, $order = null){
 		$db->query('UPDATE exchange_real_orders_tbl SET order_cancel_at = '.$t.', order_status = "canceled", order_last_status_changed_at = '.$t.' WHERE order_uuid = "'.$order['id'].'" LIMIT 1');
 		
 		//Отмена ордера (уже проверенного)
-		$redis->rpush('INDEXTRDADE_CANCEL_ORDERS_' . $order['pair'], $order['id']);
+		$redis->rpush('INDEXTRDADE_CANCEL_ORDERS_' . $order['pair'], $order['id']); 
+		
+		//удаляем
+		$ssdb->hdel('INDEXTRDADE_LIVE_ORDERS_'.$order['pair'], $order['id']);
 		
 	$db->commit();
 	
@@ -261,7 +264,7 @@ function calcOrderFee($db, $order){
 		return 'Empty fee calculated';
 }
 
-function addToGlobalOrderList($db, $redis, $order, $fee){
+function addToGlobalOrderList($db, $redis, $ssdb, $order, $fee){
 	$pairId = $db->fetchOne('SELECT _id FROM exchange_pairs_tbl WHERE pair_name = "'.$order['pair'].'" LIMIT 1');
 	$sql = 'INSERT INTO exchange_real_orders_tbl SET 
 				order_uuid	= ?,
@@ -308,9 +311,18 @@ function addToGlobalOrderList($db, $redis, $order, $fee){
 		
 		$_id = $db->lastInsertId();
 		
-		//а теперь в редис 
-		$redis->rpush('INDEXTRDADE_NEW_ORDERS_' . $order['pair'], json_encode($order));
-		//$ssdb->qpush_back('INDEXTRDADE_NEW_ORDERS_'.$order['pair'], json_encode($order));
+		$jsonOrder = json_encode($order);
+		
+		if (!empty($jsonOrder)){
+			//а теперь в редис 
+			$redis->rpush('INDEXTRDADE_NEW_ORDERS_' . $order['pair'], $jsonOrder);
+			//$ssdb->qpush_back('INDEXTRDADE_NEW_ORDERS_'.$order['pair'], json_encode($order));
+			
+			//в SSDB мы для быстрого восстановления запишем в hash-map
+			$recoveryList = $ssdb->hset('INDEXTRDADE_LIVE_ORDERS_'.$order['pair'], $order['id'], $jsonOrder);
+		}
+		
+		
 		
 		$db->commit();
 		
@@ -483,7 +495,7 @@ $loop->addPeriodicTimer(2, function() use (&$db, &$redis, &$ssdb, &$log, &$runti
 		$log->info( $order['id'] . ' | ' . round( (microtime(true) - $t0)*1000, 3) . " :: Trade fee: " . $orderFee . " :: Price: ".($order['price']/1000000000).", amount: ".($order['amount']/1000000000).", total: ".(($order['price']/1000000000)*($order['amount']/1000000000)) );
 	
 		//4. Запись в глобальный список ордеров 
-		$db_id = addToGlobalOrderList($db, $redis, $order, $orderFee);
+		$db_id = addToGlobalOrderList($db, $redis, $ssdb, $order, $orderFee);
 		
 		if (is_string($db_id)){
 			$log->error( $order['id'] . ' | ' . round( (microtime(true) - $t0)*1000, 3) . " :: Save to main DB error. Reason: " . $db_id);
