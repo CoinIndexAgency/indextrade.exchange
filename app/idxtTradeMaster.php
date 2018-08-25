@@ -921,7 +921,7 @@ $reportsQueue = Array(); //массив репортов, которые нуж�
 $book = buildBook();
 $marketView = Array();
 
-
+$ssdb->hclear('INDEXTRDADE_LIVE_ORDERS_'.$pair);
 //начальная загрузка данных 
 $res = $ssdb->hgetall('INDEXTRDADE_LIVE_ORDERS_'.$pair);
 
@@ -940,6 +940,7 @@ if (!empty($res)){
 }
 echo "Book snapshot restored: " . count($book['ORDERS']) . " orders\n";
 
+$сentrifugo = initCentrifugo();
 
 //таймер берет с очереди новую задачу и обрабатывает ее (добавление или удаление ордера или команда)
 $loop->addPeriodicTimer(0.1, function() use (&$redis, &$bookStatus, &$pair, &$ch, &$reportsQueue, &$book){
@@ -974,7 +975,6 @@ $loop->addPeriodicTimer(0.1, function() use (&$redis, &$bookStatus, &$pair, &$ch
 			//echo $checkResult . " :: ";
 				
 			$report = Array('type' => 'REJECT', 'msg' => $checkResult, 'orderID' => $cmd['id'], 'ts' => t());
-		
 			$reportsQueue[] = $report;
 		}
 		else {	
@@ -987,15 +987,26 @@ $loop->addPeriodicTimer(0.1, function() use (&$redis, &$bookStatus, &$pair, &$ch
 	
 });
 
-
+/*
 $loop->addPeriodicTimer(1, function() use (&$book){
 	procMarketView($book, 10);
 });
+*/
 
 //фризим очередь, формируем бук 
-$loop->addPeriodicTimer(10, function() use ($redis, &$book, &$reportsQueue){
+$loop->addPeriodicTimer(10, function() use (&$redis, &$сentrifugo, $pair, &$book, &$reportsQueue){
 	//return;
+	
+	//Todo: считать спред, лучший бид/аск, последнюю сделку, обьемы на покупку и продажу общие	
 	procMarketView($book, 10);
+	
+	$_data = json_encode( $book['MARKET_VIEW'] );
+	
+	//обновляем в Redis-е
+	$redis->hset('INDEXTRDADE_MARKET_VIEW', $pair, $_data);
+	
+	//отослать в паблик канал центрифуги 
+	$сentrifugo->publish('public:' . $pair, Array( 'message' => $_data ));
 	
 	printMarketView($book, $reportsQueue); 
 	return;
@@ -1007,9 +1018,6 @@ $loop->addPeriodicTimer(1, function() use (&$ssdb, &$reportsQueue){
 		procReports($ssdb, $reportsQueue);
 	}
 });
-
-
-
 
 
 $loop->run();

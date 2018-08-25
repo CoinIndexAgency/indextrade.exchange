@@ -377,11 +377,16 @@ $loop->addPeriodicTimer(2, function() use (&$db, &$redis, &$ssdb, &$log, &$runti
 		
 		$order = $orderPacket['body'];
 		
+		//DEBUG 
+		$order['uid'] = 1;
+		
+		//а главное - хеш-мапа глобальная 
+		$ssdb->hset('INDEXTRDADE_ORDERS_BY_USER', $order['id'], $order['uid']);
+		
 		$report = Array('type' => 'CHECK', 'msg' => 'Decoding protocol and parse format', 'orderID' => $order['id'], 'raw' => $tmp, 'ts' => t());
 		sendExecutionReport($ssdb, $report, $log);
 		
-		//DEBUG 
-		$order['uid'] = 1;
+		
 		
 		$log->info( $order['id'] . ' | ' . round( (microtime(true) - $t0)*1000, 3) . " :: ".$orderPacket['act']." :: Decoding order", $order);
 

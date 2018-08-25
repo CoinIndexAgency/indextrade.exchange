@@ -3,9 +3,9 @@ namespace IndexTrade;
 
 error_reporting(E_ERROR | E_WARNING | E_PARSE);// & ~E_NOTICE);
 
-require_once __DIR__ . '/vendor/autoload.php';
-require_once __DIR__ . '/libs/SSDB.php';
-require_once __DIR__ . '/libs/idxtLibs.php';
+require_once __DIR__ . '/../app/vendor/autoload.php';
+require_once __DIR__ . '/../app/libs/SSDB.php';
+require_once __DIR__ . '/../app/libs/idxtLibs.php';
 
 use Zend\Db;
 use Zend\Db\Adapter\Mysqli;
@@ -16,18 +16,17 @@ use Monolog\Handler\StreamHandler;
 use Monolog\Handler\ProcessHandler;
 use Monolog\Handler\StdoutHandler;
 use Monolog\Handler\ErrorLogHandler;
-
 use Centrifugo\Centrifugo;
-use Centrifugo\Clients\HttpClient;
-
 
 $db 	= null;
 $redis 	= null;
 $ssdb 	= null;
 $log 	= null;
-$сentrifugo 	= null;
 	
 	function initDb(){
+		if (!empty($db))
+			return $db;
+		
 		//подключение к базе данных
 		$options = array(
 				\Zend_Db::AUTO_QUOTE_IDENTIFIERS => true,
@@ -57,6 +56,9 @@ $сentrifugo 	= null;
 	}
 
 	function initRedis(){
+		if (!empty($redis))
+			return $redis;
+		
 		$client = new Predis\Client([
 			'scheme' => 'tcp',
 			'host'   => '127.0.0.1',
@@ -68,6 +70,10 @@ $сentrifugo 	= null;
 	}
 	
 	function initSSDB(){
+		if (!empty($ssdb))
+			return $ssdb;
+		
+		
 		$ssdb = new \SimpleSSDB('localhost', 8888, 5000);	//192.241.194.55   sf3-ssdb.agpsource.com
 		
 		return $ssdb;
@@ -82,17 +88,6 @@ $сentrifugo 	= null;
 		return $log;
 	}
 	
-	
-	//пока используем Http транспорт, в тестовой версии 
-	function initCentrifugo(){
-		
-		$centrifugo = new Centrifugo('https://socket.indextrade.exchange/api/', '718ea09d-63e4-4f81-8da2-8da0a03a44bc', new HttpClient());
-		
-		return $centrifugo;
-	}
-	
-$db 	= initDb();
-$redis 	= initRedis(); 
-$ssdb 	= initSSDB();  
-
-$loop = \React\EventLoop\Factory::create();
+//$db 	= initDb();
+//$redis 	= initRedis(); 
+//$ssdb 	= initSSDB();  

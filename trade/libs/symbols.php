@@ -444,7 +444,6 @@ $__symbols = Array(
 foreach($__symbols as $s => $v){
 	$cur = array_reverse(explode('/', $v['index']))[0];
 	$ass = array_reverse(explode('/', $v['index']))[1];
-	$contract = name;
 	
 	$v['cur'] = $cur;
 	$v['ass'] = $ass;

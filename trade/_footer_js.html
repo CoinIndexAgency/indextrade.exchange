@@ -20,4 +20,32 @@
 <script src="//static.indextrade.exchange/plugins/metrojs/MetroJs.min.js"></script>
 <script src="//static.indextrade.exchange/js/modern.js"></script>
 
+<script>
+	var centrifuge = new Centrifuge({
+        url: 'https://socket.indextrade.exchange/connection',
+        user: 		'<?php echo $userId; ?>',
+        timestamp: 	'<?php echo $t; ?>',
+        token: 		'<?php echo $token; ?>'
+    });
+
+    centrifuge.subscribe("public", function(message) {
+        console.log(message);
+    });
 	
+	//подписка на канал по инструменту 
+	if (curAsset && curAsset.symbol){
+		centrifuge.subscribe("public:" + curAsset.symbol, function(message) {
+			console.log(message);
+		});
+	}
+	
+	//пока сюда будут и екзекюшин репорты приходить 
+	centrifuge.subscribe("public#<?php echo $userId; ?>", function(message) {
+        console.log(message);
+    });
+	
+	
+
+    centrifuge.connect();
+
+</script>

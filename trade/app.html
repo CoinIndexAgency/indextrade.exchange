@@ -1,0 +1,77 @@
+<?php
+namespace IndexTrade;
+ 
+error_reporting(E_ERROR | E_WARNING | E_PARSE);
+date_default_timezone_set('UTC');
+clearstatcache(true);
+
+include_once( __DIR__ . '/__bootstrap.php');
+
+$log = initLog('idxtTradingApp');
+
+use \Psr\Http\Message\ServerRequestInterface as Request;
+use \Psr\Http\Message\ResponseInterface as Response;
+use Centrifugo\Centrifugo;
+
+/**
+echo "\n\n";
+echo "     ---| IndexTrade.Exchange Platform via CoinIndex Team with LOVE |--- \n\n";
+echo "Starting at: " . date('r') . "\n";
+echo "Starting ExecutionReports Master...\n\n";
+**/
+
+$container = new \Slim\Container;
+
+
+$container['redis'] = function ($container) {
+    return initRedis();
+};
+
+$container['ssdb'] = function ($container) {
+    return initSSDB();
+};
+
+$container['db'] = function ($container) {
+    return initDB();
+};
+
+
+//$container['settings'] = Array('displayErrorDetails' => true);
+
+$app = new \Slim\App($container);
+
+$app->get('/hello', function (Request $request, Response $response, array $args) {
+    $redis = $this->get('redis');
+	$books = $redis->hgetall('INDEXTRDADE_MARKET_VIEW');
+	//var_dump( $redis ); exit();
+	
+	$resp = $response->withJson($books, 200);
+	//getBody()->write( $redis->info() );
+
+    return $resp;
+});
+
+
+
+
+//создание ордера 
+$app->get('/orders/new', function (Request $request, Response $response, array $args) {
+    //$request
+	
+	
+	
+	
+	$redis = $this->get('redis');
+	$books = $redis->hgetall('INDEXTRDADE_MARKET_VIEW');
+	//var_dump( $redis ); exit();
+	
+	$resp = $response->withJson($books, 200);
+	//getBody()->write( $redis->info() );
+
+    return $resp;
+});
+
+
+
+$app->run();
+

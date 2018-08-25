@@ -21,10 +21,12 @@ $log = initLog('idxtReportsMaster');
 
 **/
 
-
+//для ускорения обработки 
+$o2uid = Array();
+$сentrifugo = initCentrifugo();
 
 //Главный цикл обработки событий 
-$loop->addPeriodicTimer(0.1, function() use (&$db, &$redis, &$ssdb, &$log){
+$loop->addPeriodicTimer(0.01, function() use (&$db, &$redis, &$ssdb, &$log, &$o2uid, &$сentrifugo){
 	$res = $ssdb->qpop_front('INDEXTRDADE_EXECUTION_REPORTS', 1);
 	
 	if (!empty($res)){
@@ -50,6 +52,24 @@ $loop->addPeriodicTimer(0.1, function() use (&$db, &$redis, &$ssdb, &$log){
 		if (array_key_exists('raw', $res) && !empty($res['raw'])){
 			$_raw = json_encode( $res['raw'] );
 		}
+		
+		//а теперь глянем, чей ордер то? 
+		if (!array_key_exists($res['orderID'], $o2uid)){
+			$_uid = $ssdb->hget('INDEXTRDADE_ORDERS_BY_USER', $res['orderID']);
+			
+			if (!empty($_uid)){
+				$o2uid[ $res['orderID'] ] = $_uid;
+			}
+			else {
+				$log->error( 'Invalud Uid by INDEXTRDADE_ORDERS_BY_USER. OrderID: ' . $res['orderID']);
+				return;
+			}
+		}
+		else
+			$_uid = $o2uid[ $res['orderID'] ];
+		
+		
+		
 		
 		$db->beginTransaction();
 			//$log->info('Starting write execution report...');
@@ -110,8 +130,19 @@ $loop->addPeriodicTimer(0.1, function() use (&$db, &$redis, &$ssdb, &$log){
 		$db->commit();
 		
 		
+		//отправит в Centrifugu пока что так напрямую
+		$_uid = 42;		
+		$сentrifugo->publish('public#idxt' . $_uid, Array( 'message' => $res ));
+		
 		$log->info( $res['msg'] . ' :: ' . $res['orderID'] . ' :: ' . $res['type'] . ' :: ' . date('r', $res['ts']/10000));
 	} 	
+});
+
+
+$loop->addPeriodicTimer(3, function() use (&$ssdb, &$log){
+	$res = $ssdb->qsize('INDEXTRDADE_EXECUTION_REPORTS');
+	
+	$log->info("In execution reports queue: " . $res );
 });
 
 

@@ -460,16 +460,16 @@
 									</h3>
                                 </div>
                                 <div class="panel-body">
-                                    <div class="form-group" style="padding-top:15px !important;">
+                                    <div class="form-group idxtBuyForm" style="padding-top:15px !important;">
 										<div class="col-sm-12 col-lg-12" style="padding-right:0px !important; padding-left:0px !important;">
 											<div class="input-group m-b-sm">
-												<input type="text" class="form-control" placeholder="Price" aria-describedby="basic-addon1">
+												<input type="text" class="form-control idxtPrice" placeholder="Price" aria-describedby="basic-addon1">
 												<span class="input-group-addon" id="basic-addon1" style="width:40%"><?php echo $q['cur']; ?></span>
 												
 											</div>
 											
 											<div class="input-group m-b-sm">
-												<input type="text" class="form-control" placeholder="Amount" aria-describedby="basic-addon1">
+												<input type="text" class="form-control idxtAmount" placeholder="Amount" aria-describedby="basic-addon1">
 												<span class="input-group-addon" id="basic-addon1" style="width:40%">
 												
 												<?php 
@@ -482,16 +482,16 @@
 											</div>
 											
 											<div class="input-group m-b-sm" style="margin-bottom:2px !important;">
-												<input type="text" class="form-control" placeholder="Total" aria-describedby="basic-addon1" readonly="">
+												<input type="text" class="form-control idxtTotal" placeholder="Total" aria-describedby="basic-addon1" readonly="">
 												<span class="input-group-addon" id="basic-addon1"><?php echo $q['cur']; ?></span>
 											</div>											
 											
 											<div class="input-group m-b-sm">
-											<p class="form-control-static">Transaction fee: 0.123 <?php echo $q['cur'];?></p>
+											<p class="form-control-static">Transaction fee: <span class="idxtTradeFee">0.123</span> <?php echo $q['cur'];?></p>
 											</div>
 											
 											<div class="input-group m-b-sm" style="text-align:center; width:100%;">
-												<button type="button" class="btn btn-success" style="width:100%;">BUY</button>
+												<button type="button" class="btn btn-success idxtBuyBtn" style="width:100%;">BUY</button>
 											</div>
 										</div>
 									</div>
@@ -654,6 +654,14 @@
 								
 								<div class="panel-heading">
                                     <h4 class="panel-title">My orders</h4>
+									<div class="panel-control">
+                                        <a href="javascript:void(0);" data-toggle="tooltip" data-placement="top" title="Full Execution Reports log" class=""><i class="icon-list"></i>&nbsp;</a>
+										<!--
+										<a href="javascript:void(0);" data-toggle="tooltip" data-placement="top" title="View options" class=""><i class="icon-settings"></i>&nbsp;</a>
+										
+										<a href="javascript:void(0);" data-toggle="tooltip" data-placement="top" title="Reload" class="panel-reload"><i class="icon-reload"></i></a>
+										-->
+                                    </div>
                                 </div>
                                 <div class="panel-body">
                                     <div class="table-responsive project-stats">  
@@ -727,9 +735,25 @@
 		<script src="//static.indextrade.exchange/highstock/code/indicators/volume-by-price.js"></script>
 		
 		<script>
-			/*
+			/* 
 			
 		   */
+		    $('.idxtBuyForm').find('.idxtBuyBtn').unbind('click').on('click', function(e){
+				var el = $(e.currentTarget);
+					el.addClass('disabled');
+			});
+		   
+		   
+		   
+		    idxt.createBuyOrder = function(){
+				
+			}
+		   
+		   
+			idxt.createAndSendOrder = function(){}
+		    
+		   
+		   
 		</script>
         
     </body>
