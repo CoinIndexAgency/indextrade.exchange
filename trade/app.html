@@ -55,17 +55,65 @@ $app->get('/hello', function (Request $request, Response $response, array $args)
 
 
 //создание ордера 
-$app->get('/orders/new', function (Request $request, Response $response, array $args) {
-    //$request
+$app->post('/orders/new', function (Request $request, Response $response, array $args) {
+    if ($request->getOriginalMethod() !== 'POST'){
+		return $response->withJson(Array('status' => 'ERROR', 'error' => 'Invalid method', 'data' => null), 200);
+	}
+	
+	$quote = $request->getParsedBody();
+	$uid = 42;
+	
+	if (empty($quote)){
+		return $response->withJson(Array('status' => 'ERROR', 'error' => 'Invalid body', 'data' => null), 200);
+	}
+	
+	if (is_numeric($quote['price']) && is_numeric($quote['amount']) && is_string($quote['side']) && is_string($quote['symbol'])){
+		
+		if ($quote['side'] != 'BUY' || $quote['side'] != 'SELL'){
+			return $response->withJson(Array('status' => 'ERROR', 'error' => 'Invalid quote type', 'data' => null), 200);
+		}
+		
+		//ну, пробуем создать ордер, зафиксировать его а дальше уже разбереться движок 
+		$order = Array(
+			'id'	=> Ramsey\Uuid\Uuid::uuid4()->toString(),
+			'uid' 	=> $uid,
+			'pair' 	=> $quote['symbol'],
+			'type'	=> 'LIMIT',
+			'side'	=> $quote['side'],
+			'exec' 	=> 'GTC',
+			'price' => floatval($quote['price']) * 1000000000,
+			'amount' => floatval($quote['amount']) * 1000000000,
+			'tags'	=> Array(),
+			'ts' => t()
+		);
+		
+		$command = Array(
+			'act' 	=> 'ADD',
+			'body'	=> $order
+		);
+		
+		//отправим репорт, что приняли 
+		$ssdb = $this->get('ssdb');
+		$report = Array('type' => 'PROPOSED', 'msg' => 'Order sended to API front-end', 'orderID' => $order['id'], 'raw' => $order, 'ts' => t());
+		$ssdb->qpush_back('INDEXTRDADE_EXECUTION_REPORTS', json_encode($report));
+		
+		
+		$redis = $this->get('redis');
+		$redis->rpush( 'INDEXTRDADE_NEW_ORDERS_CH0',  json_encode($command));
+		
+		return $response->withJson(Array('status' => 'OK', 'error' => null, 'data' => Array('orderID' => $order['id'])), 200);
+	}
+	else {
+		return $response->withJson(Array('status' => 'ERROR', 'error' => 'Invalid quote field type', 'data' => null), 200);
+	}
 	
 	
 	
-	
-	$redis = $this->get('redis');
-	$books = $redis->hgetall('INDEXTRDADE_MARKET_VIEW');
+	//$redis = $this->get('redis');
+	//$books = $redis->hgetall('INDEXTRDADE_MARKET_VIEW');
 	//var_dump( $redis ); exit();
 	
-	$resp = $response->withJson($books, 200);
+	$resp = $response->withJson($request, 200);
 	//getBody()->write( $redis->info() );
 
     return $resp;

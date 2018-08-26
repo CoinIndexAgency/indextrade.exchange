@@ -425,10 +425,6 @@ $__symbols = Array(
 		'name' => "XRP/ETH",
 		'type' => 'SPOT',
 		'index' => "XRP/ETH"),
-	'' => Array(
-		'name' => "",
-		'type' => 'SPOT',
-		'index' => ""),
 	'USDT/ETH' => Array(
 		'name' => "USDT/ETH",
 		'type' => 'SPOT',
@@ -436,7 +432,11 @@ $__symbols = Array(
 	'TUSD/ETH' => Array(
 		'name' => "TUSD/ETH",
 		'type' => 'SPOT',
-		'index' => "TUSD/ETH")
+		'index' => "TUSD/ETH"),
+	'XXX/USDT' => Array(
+		'name' => "XXX/USDT",
+		'type' => 'SPOT',
+		'index' => "XXX/USDT")
 );	
 
 

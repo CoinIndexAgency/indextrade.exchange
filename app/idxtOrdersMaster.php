@@ -347,7 +347,7 @@ $runtimeStats = Array(
 //$client = initRedis();
 
 
-$loop->addPeriodicTimer(2, function() use (&$db, &$redis, &$ssdb, &$log, &$runtimeStats){
+$loop->addPeriodicTimer(0.25, function() use (&$db, &$redis, &$ssdb, &$log, &$runtimeStats){
 	//пробуем получить один элемент
 	$tmp = $redis->lpop('INDEXTRDADE_NEW_ORDERS_CH0'); //'INDEXTRDADE_ACCEPTED_ORDERS');
 	

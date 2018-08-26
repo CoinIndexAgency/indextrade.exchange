@@ -112,6 +112,10 @@ $loop->addPeriodicTimer(0.01, function() use (&$db, &$redis, &$ssdb, &$log, &$o2
 				case 'CHECK' : {
 					
 				}
+				//базово ордер принят и зарегистрирован
+				case 'PROPOSED' : {
+					
+				}
 				//другие типы репортов
 				default: {
 					

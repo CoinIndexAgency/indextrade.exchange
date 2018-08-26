@@ -8,8 +8,8 @@
 	$q = Array(); //текущая демо-квота 
 	$_symbol = strval($_GET['symbol']);
 	
-	if (empty($_symbol))
-		$_symbol = 'USDT.FUT/IDXT';	
+	//if (empty($_symbol))
+	$_symbol = 'XXX/USDT';	
 	
 	
 	if (array_key_exists($_symbol, $__symbols) === true){
@@ -38,6 +38,10 @@
 		<script>
 			var chartMain = null; // globally available
 			var curAsset = <?php echo json_encode($q); ?>;
+			
+			//тест 
+			curAsset.takerFee = 0.2; 
+			curAsset.makerFee = 0.2; 
 		</script>
         
     </head>
@@ -463,7 +467,7 @@
                                     <div class="form-group idxtBuyForm" style="padding-top:15px !important;">
 										<div class="col-sm-12 col-lg-12" style="padding-right:0px !important; padding-left:0px !important;">
 											<div class="input-group m-b-sm">
-												<input type="text" class="form-control idxtPrice" placeholder="Price" aria-describedby="basic-addon1">
+												<input type="text" type="number" class="form-control idxtPrice" placeholder="Price" aria-describedby="basic-addon1">
 												<span class="input-group-addon" id="basic-addon1" style="width:40%"><?php echo $q['cur']; ?></span>
 												
 											</div>
@@ -738,19 +742,72 @@
 			/* 
 			
 		   */
-		    $('.idxtBuyForm').find('.idxtBuyBtn').unbind('click').on('click', function(e){
+			idxt.numCodes = [49,50,51,52,53,54,55,56,57,190];
+			
+		    $('.idxtBuyForm').find('.idxtPrice,.idxtAmount').keyup(function(e){
+				var _code = e.keyCode;
+					
+					if (idxt.numCodes.indexOf( _code ) == -1){
+						e.stopImmediatePropagation();
+						return;
+					}
+					
+					idxt.calcBuyOrder();
+			});
+			
+			
+			$('.idxtBuyForm').find('.idxtBuyBtn').unbind('click').on('click', function(e){
 				var el = $(e.currentTarget);
 					el.addClass('disabled');
+				
+				var form = $('.idxtBuyForm');
+				
+				var price = form.find('.idxtPrice').val();
+				var amount = form.find('.idxtAmount').val();
+				
+				if (price && amount && curAsset){
+					idxt.createAndSendOrder(el, price, amount, 'BUY', curAsset.symbol);
+				}
+				else
+					el.removeClass('disabled');
 			});
 		   
-		   
-		   
-		    idxt.createBuyOrder = function(){
+		    idxt.createAndSendOrder = function(el, price, amount, side, symbol){
+				if (!price || !amount || !side || !symbol) return;
+			
+				$.post('/orders/new', {price: price, amount: amount, side: side, symbol: symbol}, function(d, status, dType){
+					console.log( [d, status, dType]  );
+					
+					el.removeClass('disabled');
+				});			
+		    };
+			
+			idxt.calcBuyOrder = function(){
+				var form = $('.idxtBuyForm');
 				
-			}
-		   
-		   
-			idxt.createAndSendOrder = function(){}
+				console.log( form.find('.idxtPrice').val() );
+				
+				var price = parseFloat( form.find('.idxtPrice').val() );
+				var amount = parseFloat( form.find('.idxtAmount').val() );
+				
+				console.log( [price, amount] );
+				
+				var fee = curAsset.takerFee; 
+					if (!fee)
+						fee = 0.2;
+				
+				var total = price * amount;
+				
+				console.log( total );
+				
+				var calcfee = Math.round( (total / 100) * fee, 3);
+				
+				if (calcfee < 0.001) 
+					calcfee = 0.001;
+					
+				form.find('.idxtTotal').val( total );
+				form.find('.idxtTradeFee').html( calcfee );				
+			};
 		    
 		   
 		   
