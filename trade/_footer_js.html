@@ -34,14 +34,30 @@
 	
 	//подписка на канал по инструменту 
 	if (curAsset && curAsset.symbol){
-		centrifuge.subscribe("public:" + curAsset.symbol, function(message) {
-			console.log(message);
+		centrifuge.subscribe("public:" + curAsset.symbol, function(msg) {
+			console.log(msg);
+			
+			if (msg.data.message){
+				var obj = JSON.parse( msg.data.message );
+				
+				if (obj){
+					console.log(obj);
+					
+					if (msg.data.type == 'mview'){
+						//это снепшот текущего рынка 
+						idxt.renderMarketView(obj);
+					}				
+				}				
+			}
+			
+			
+			
 		});
 	}
 	
 	//пока сюда будут и екзекюшин репорты приходить 
 	centrifuge.subscribe("public#<?php echo $userId; ?>", function(message) {
-        console.log(message);
+        //console.log(message);
     });
 	
 	

@@ -11,8 +11,7 @@ class ResponseTest extends TestCase
 
     public function setUp()
     {
-        $this->stream = $this->getMockBuilder('React\Stream\Stream')
-            ->disableOriginalConstructor()
+        $this->stream = $this->getMockBuilder('React\Stream\DuplexStreamInterface')
             ->getMock();
     }
 
@@ -31,23 +30,31 @@ class ResponseTest extends TestCase
             ->expects($this->at(2))
             ->method('on')
             ->with('end', $this->anything());
+        $this->stream
+            ->expects($this->at(3))
+            ->method('on')
+            ->with('close', $this->anything());
 
         $response = new Response($this->stream, 'HTTP', '1.0', '200', 'OK', array('Content-Type' => 'text/plain'));
 
         $handler = $this->createCallableMock();
         $handler->expects($this->once())
             ->method('__invoke')
-            ->with('some data', $this->anything());
+            ->with('some data');
 
         $response->on('data', $handler);
 
         $handler = $this->createCallableMock();
         $handler->expects($this->once())
-            ->method('__invoke')
-            ->with(null, $this->isInstanceOf('React\HttpClient\Response'));
+            ->method('__invoke');
 
         $response->on('end', $handler);
-        $response->on('close', $this->expectCallableNever());
+
+        $handler = $this->createCallableMock();
+        $handler->expects($this->once())
+            ->method('__invoke');
+
+        $response->on('close', $handler);
 
         $this->stream
             ->expects($this->at(0))
@@ -57,9 +64,9 @@ class ResponseTest extends TestCase
         $response->handleEnd();
 
         $this->assertSame(
-            [
+            array(
                 'Content-Type' => 'text/plain'
-            ],
+            ),
             $response->getHeaders()
         );
     }
@@ -82,9 +89,9 @@ class ResponseTest extends TestCase
         $response->pause();
 
         $this->assertSame(
-            [
+            array(
                 'content-type' => 'text/plain',
-            ],
+            ),
             $response->getHeaders()
         );
     }
@@ -99,14 +106,14 @@ class ResponseTest extends TestCase
             '1.0',
             '200',
             'ok',
-            [
+            array(
                 'content-type' => 'text/plain',
                 'transfer-encoding' => 'chunked',
-            ]
+            )
         );
 
         $buffer = '';
-        $response->on('data', function ($data, $stream) use (&$buffer) {
+        $response->on('data', function ($data) use (&$buffer) {
             $buffer.= $data;
         });
         $this->assertSame('', $buffer);
@@ -116,9 +123,40 @@ class ResponseTest extends TestCase
         $this->assertSame('Wiki', $buffer);
 
         $this->assertSame(
-            [
+            array(
                 'content-type' => 'text/plain',
-            ],
+            ),
+            $response->getHeaders()
+        );
+    }
+
+    /** @test */
+    public function doubleChunkedEncodingResponseWillBePassedAsIs()
+    {
+        $stream = new ThroughStream();
+        $response = new Response(
+            $stream,
+            'http',
+            '1.0',
+            '200',
+            'ok',
+            array(
+                'content-type' => 'text/plain',
+                'transfer-encoding' => array(
+                    'chunked',
+                    'chunked'
+                )
+            )
+        );
+
+        $this->assertSame(
+            array(
+                'content-type' => 'text/plain',
+                'transfer-encoding' => array(
+                    'chunked',
+                    'chunked'
+                )
+            ),
             $response->getHeaders()
         );
     }

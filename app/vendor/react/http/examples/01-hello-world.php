@@ -1,23 +1,27 @@
 <?php
 
+use Psr\Http\Message\ServerRequestInterface;
 use React\EventLoop\Factory;
-use React\Socket\Server;
-use React\Http\Request;
 use React\Http\Response;
+use React\Http\Server;
 
 require __DIR__ . '/../vendor/autoload.php';
 
 $loop = Factory::create();
-$socket = new Server($loop);
 
-$server = new \React\Http\Server($socket);
-$server->on('request', function (Request $request, Response $response) {
-    $response->writeHead(200, array('Content-Type' => 'text/plain'));
-    $response->end("Hello world!\n");
+$server = new Server(function (ServerRequestInterface $request) {
+    return new Response(
+        200,
+        array(
+            'Content-Type' => 'text/plain'
+        ),
+        "Hello world\n"
+    );
 });
 
-$socket->listen(isset($argv[1]) ? $argv[1] : 0, '0.0.0.0');
+$socket = new \React\Socket\Server(isset($argv[1]) ? $argv[1] : '0.0.0.0:0', $loop);
+$server->listen($socket);
 
-echo 'Listening on ' . $socket->getPort() . PHP_EOL;
+echo 'Listening on ' . str_replace('tcp:', 'http:', $socket->getAddress()) . PHP_EOL;
 
 $loop->run();

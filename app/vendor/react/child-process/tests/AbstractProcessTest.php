@@ -2,11 +2,12 @@
 
 namespace React\Tests\ChildProcess;
 
+use PHPUnit\Framework\ExpectationFailedException;
+use PHPUnit\Framework\TestCase;
 use React\ChildProcess\Process;
-use React\EventLoop\Timer\Timer;
 use SebastianBergmann\Environment\Runtime;
 
-abstract class AbstractProcessTest extends \PHPUnit_Framework_TestCase
+abstract class AbstractProcessTest extends TestCase
 {
     abstract public function createLoop();
 
@@ -150,15 +151,13 @@ abstract class AbstractProcessTest extends \PHPUnit_Framework_TestCase
         $cmd = $this->getPhpBinary() . ' -r ' . escapeshellarg('echo getcwd(), PHP_EOL, count($_SERVER), PHP_EOL;');
 
         $loop = $this->createLoop();
+
         $process = new Process($cmd);
+        $process->start($loop);
 
         $output = '';
-
-        $loop->addTimer(0.001, function(Timer $timer) use ($process, &$output) {
-            $process->start($timer->getLoop());
-            $process->stdout->on('data', function () use (&$output) {
-                $output .= func_get_arg(0);
-            });
+        $process->stdout->on('data', function () use (&$output) {
+            $output .= func_get_arg(0);
         });
 
         $loop->run();
@@ -178,15 +177,13 @@ abstract class AbstractProcessTest extends \PHPUnit_Framework_TestCase
         $cmd = $this->getPhpBinary() . ' -r ' . escapeshellarg('echo getcwd(), PHP_EOL;');
 
         $loop = $this->createLoop();
+
         $process = new Process($cmd, '/');
+        $process->start($loop);
 
         $output = '';
-
-        $loop->addTimer(0.001, function(Timer $timer) use ($process, &$output) {
-            $process->start($timer->getLoop());
-            $process->stdout->on('data', function () use (&$output) {
-                $output .= func_get_arg(0);
-            });
+        $process->stdout->on('data', function () use (&$output) {
+            $output .= func_get_arg(0);
         });
 
         $loop->run();
@@ -203,15 +200,13 @@ abstract class AbstractProcessTest extends \PHPUnit_Framework_TestCase
         $cmd = $this->getPhpBinary() . ' -r ' . escapeshellarg('echo getenv("foo"), PHP_EOL;');
 
         $loop = $this->createLoop();
+
         $process = new Process($cmd, null, array('foo' => 'bar'));
+        $process->start($loop);
 
         $output = '';
-
-        $loop->addTimer(0.001, function(Timer $timer) use ($process, &$output) {
-            $process->start($timer->getLoop());
-            $process->stdout->on('data', function () use (&$output) {
-                $output .= func_get_arg(0);
-            });
+        $process->stdout->on('data', function () use (&$output) {
+            $output .= func_get_arg(0);
         });
 
         $loop->run();
@@ -234,9 +229,7 @@ abstract class AbstractProcessTest extends \PHPUnit_Framework_TestCase
             $termSignal = func_get_arg(1);
         });
 
-        $loop->addTimer(0.001, function(Timer $timer) use ($process) {
-            $process->start($timer->getLoop());
-        });
+        $process->start($loop);
 
         $loop->run();
 
@@ -250,20 +243,94 @@ abstract class AbstractProcessTest extends \PHPUnit_Framework_TestCase
         $this->assertFalse($process->isTerminated());
     }
 
+    public function testProcessWillExitFasterThanExitInterval()
+    {
+        $loop = $this->createLoop();
+        $process = new Process('echo hi');
+        $process->start($loop, 2);
+
+        $time = microtime(true);
+        $loop->run();
+        $time = microtime(true) - $time;
+
+        $this->assertLessThan(0.1, $time);
+    }
+
+    public function testDetectsClosingStdoutWithoutHavingToWaitForExit()
+    {
+        $cmd = 'exec ' . $this->getPhpBinary() . ' -r ' . escapeshellarg('fclose(STDOUT); sleep(1);');
+
+        $loop = $this->createLoop();
+        $process = new Process($cmd);
+        $process->start($loop);
+
+        $closed = false;
+        $process->stdout->on('close', function () use (&$closed) {
+            $closed = true;
+        });
+
+        // run loop for 0.1s only
+        $loop->addTimer(0.1, function () use ($loop) {
+            $loop->stop();
+        });
+        $loop->run();
+
+        $this->assertTrue($closed);
+    }
+
+    public function testKeepsRunningEvenWhenAllStdioPipesHaveBeenClosed()
+    {
+        $cmd = 'exec ' . $this->getPhpBinary() . ' -r ' . escapeshellarg('fclose(STDIN);fclose(STDOUT);fclose(STDERR);sleep(1);');
+
+        $loop = $this->createLoop();
+        $process = new Process($cmd);
+        $process->start($loop);
+
+        $closed = 0;
+        $process->stdout->on('close', function () use (&$closed) {
+            ++$closed;
+        });
+        $process->stderr->on('close', function () use (&$closed) {
+            ++$closed;
+        });
+
+        // run loop for 0.1s only
+        $loop->addTimer(0.1, function () use ($loop) {
+            $loop->stop();
+        });
+        $loop->run();
+
+        $this->assertEquals(2, $closed);
+        $this->assertTrue($process->isRunning());
+    }
+
+    public function testDetectsClosingProcessEvenWhenAllStdioPipesHaveBeenClosed()
+    {
+        $cmd = 'exec ' . $this->getPhpBinary() . ' -r ' . escapeshellarg('fclose(STDIN);fclose(STDOUT);fclose(STDERR);usleep(10000);');
+
+        $loop = $this->createLoop();
+        $process = new Process($cmd);
+        $process->start($loop, 0.001);
+
+        $time = microtime(true);
+        $loop->run();
+        $time = microtime(true) - $time;
+
+        $this->assertLessThan(0.1, $time);
+    }
+
     public function testStartInvalidProcess()
     {
         $cmd = tempnam(sys_get_temp_dir(), 'react');
 
         $loop = $this->createLoop();
+
         $process = new Process($cmd);
+        $process->start($loop);
 
         $output = '';
-
-        $loop->addTimer(0.001, function(Timer $timer) use ($process, &$output) {
-            $process->start($timer->getLoop());
-            $process->stderr->on('data', function () use (&$output) {
-                $output .= func_get_arg(0);
-            });
+        $process->stderr->on('data', function () use (&$output) {
+            $output .= func_get_arg(0);
         });
 
         $loop->run();
@@ -282,6 +349,35 @@ abstract class AbstractProcessTest extends \PHPUnit_Framework_TestCase
 
         $process->start($this->createLoop());
         $process->start($this->createLoop());
+    }
+
+    public function testTerminateProcesWithoutStartingReturnsFalse()
+    {
+        $process = new Process('sleep 1');
+
+        $this->assertFalse($process->terminate());
+    }
+
+    public function testTerminateWillExit()
+    {
+        $loop = $this->createloop();
+
+        $process = new Process('sleep 10');
+        $process->start($loop);
+
+        $called = false;
+        $process->on('exit', function () use (&$called) {
+            $called = true;
+        });
+
+        $process->stdin->close();
+        $process->stdout->close();
+        $process->stderr->close();
+        $process->terminate();
+
+        $loop->run();
+
+        $this->assertTrue($called);
     }
 
     public function testTerminateWithDefaultTermSignalUsingEventLoop()
@@ -307,10 +403,8 @@ abstract class AbstractProcessTest extends \PHPUnit_Framework_TestCase
             $termSignal = func_get_arg(1);
         });
 
-        $loop->addTimer(0.001, function(Timer $timer) use ($process) {
-            $process->start($timer->getLoop());
-            $process->terminate();
-        });
+        $process->start($loop);
+        $process->terminate();
 
         $loop->run();
 
@@ -348,22 +442,20 @@ abstract class AbstractProcessTest extends \PHPUnit_Framework_TestCase
         });
 
         $that = $this;
-        $loop->addTimer(0.001, function(Timer $timer) use ($process, $that) {
-            $process->start($timer->getLoop());
-            $process->terminate(SIGSTOP);
+        $process->start($loop);
+        $process->terminate(SIGSTOP);
 
-            $that->assertSoon(function() use ($process, $that) {
-                $that->assertTrue($process->isStopped());
-                $that->assertTrue($process->isRunning());
-                $that->assertEquals(SIGSTOP, $process->getStopSignal());
-            });
+        $that->assertSoon(function () use ($process, $that) {
+            $that->assertTrue($process->isStopped());
+            $that->assertTrue($process->isRunning());
+            $that->assertEquals(SIGSTOP, $process->getStopSignal());
+        });
 
-            $process->terminate(SIGCONT);
+        $process->terminate(SIGCONT);
 
-            $that->assertSoon(function() use ($process, $that) {
-                $that->assertFalse($process->isStopped());
-                $that->assertEquals(SIGSTOP, $process->getStopSignal());
-            });
+        $that->assertSoon(function () use ($process, $that) {
+            $that->assertFalse($process->isStopped());
+            $that->assertEquals(SIGSTOP, $process->getStopSignal());
         });
 
         $loop->run();
@@ -413,7 +505,12 @@ abstract class AbstractProcessTest extends \PHPUnit_Framework_TestCase
             }
         );
 
-        $loop->tick();
+        // tick loop once
+        $loop->addTimer(0, function () use ($loop) {
+            $loop->stop();
+        });
+        $loop->run();
+
         sleep(1); // comment this line out and it works fine
 
         $loop->run();
@@ -438,7 +535,11 @@ abstract class AbstractProcessTest extends \PHPUnit_Framework_TestCase
             try {
                 call_user_func($callback);
                 return;
-            } catch (\PHPUnit_Framework_ExpectationFailedException $e) {}
+            } catch (ExpectationFailedException $e) {
+                // namespaced PHPUnit exception
+            } catch (\PHPUnit_Framework_ExpectationFailedException $e) {
+                // legacy PHPUnit exception
+            }
 
             if ((microtime(true) - $start) > $timeout) {
                 throw $e;

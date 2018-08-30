@@ -2,22 +2,21 @@
 
 namespace React\HttpClient;
 
-use Evenement\EventEmitterTrait;
-use GuzzleHttp\Psr7 as gPsr;
-use React\SocketClient\ConnectorInterface;
+use Evenement\EventEmitter;
+use React\Promise;
+use React\Socket\ConnectionInterface;
+use React\Socket\ConnectorInterface;
 use React\Stream\WritableStreamInterface;
+use RingCentral\Psr7 as gPsr;
 
 /**
- * @event headers-written
  * @event response
  * @event drain
  * @event error
  * @event end
  */
-class Request implements WritableStreamInterface
+class Request extends EventEmitter implements WritableStreamInterface
 {
-    use EventEmitterTrait;
-
     const STATE_INIT = 0;
     const STATE_WRITING_HEAD = 1;
     const STATE_HEAD_WRITTEN = 2;
@@ -29,10 +28,10 @@ class Request implements WritableStreamInterface
     private $stream;
     private $buffer;
     private $responseFactory;
-    private $response;
     private $state = self::STATE_INIT;
+    private $ended = false;
 
-    private $pendingWrites = array();
+    private $pendingWrites = '';
 
     public function __construct(ConnectorInterface $connector, RequestData $requestData)
     {
@@ -42,66 +41,66 @@ class Request implements WritableStreamInterface
 
     public function isWritable()
     {
-        return self::STATE_END > $this->state;
+        return self::STATE_END > $this->state && !$this->ended;
     }
 
-    public function writeHead()
+    private function writeHead()
     {
-        if (self::STATE_WRITING_HEAD <= $this->state) {
-            throw new \LogicException('Headers already written');
-        }
-
         $this->state = self::STATE_WRITING_HEAD;
 
         $requestData = $this->requestData;
         $streamRef = &$this->stream;
         $stateRef = &$this->state;
+        $pendingWrites = &$this->pendingWrites;
+        $that = $this;
 
-        $this
-            ->connect()
-            ->done(
-                function ($stream) use ($requestData, &$streamRef, &$stateRef) {
-                    $streamRef = $stream;
+        $promise = $this->connect();
+        $promise->then(
+            function (ConnectionInterface $stream) use ($requestData, &$streamRef, &$stateRef, &$pendingWrites, $that) {
+                $streamRef = $stream;
 
-                    $stream->on('drain', array($this, 'handleDrain'));
-                    $stream->on('data', array($this, 'handleData'));
-                    $stream->on('end', array($this, 'handleEnd'));
-                    $stream->on('error', array($this, 'handleError'));
+                $stream->on('drain', array($that, 'handleDrain'));
+                $stream->on('data', array($that, 'handleData'));
+                $stream->on('end', array($that, 'handleEnd'));
+                $stream->on('error', array($that, 'handleError'));
+                $stream->on('close', array($that, 'handleClose'));
 
-                    $headers = (string) $requestData;
+                $headers = (string) $requestData;
 
-                    $stream->write($headers);
+                $more = $stream->write($headers . $pendingWrites);
 
-                    $stateRef = Request::STATE_HEAD_WRITTEN;
+                $stateRef = Request::STATE_HEAD_WRITTEN;
 
-                    $this->emit('headers-written', array($this));
-                },
-                array($this, 'handleError')
-            );
+                // clear pending writes if non-empty
+                if ($pendingWrites !== '') {
+                    $pendingWrites = '';
+
+                    if ($more) {
+                        $that->emit('drain');
+                    }
+                }
+            },
+            array($this, 'closeError')
+        );
+
+        $this->on('close', function() use ($promise) {
+            $promise->cancel();
+        });
     }
 
     public function write($data)
     {
         if (!$this->isWritable()) {
-            return;
+            return false;
         }
 
+        // write directly to connection stream if already available
         if (self::STATE_HEAD_WRITTEN <= $this->state) {
             return $this->stream->write($data);
         }
 
-        if (!count($this->pendingWrites)) {
-            $this->on('headers-written', function ($that) {
-                foreach ($that->pendingWrites as $pw) {
-                    $that->write($pw);
-                }
-                $that->pendingWrites = array();
-                $that->emit('drain', array($that));
-            });
-        }
-
-        $this->pendingWrites[] = $data;
-
+        // otherwise buffer and try to establish connection
+        $this->pendingWrites .= $data;
         if (self::STATE_WRITING_HEAD > $this->state) {
             $this->writeHead();
         }
@@ -111,8 +110,8 @@ class Request implements WritableStreamInterface
 
     public function end($data = null)
     {
-        if (null !== $data && !is_scalar($data)) {
-            throw new \InvalidArgumentException('$data must be null or scalar');
+        if (!$this->isWritable()) {
+            return;
         }
 
         if (null !== $data) {
@@ -120,19 +119,28 @@ class Request implements WritableStreamInterface
         } else if (self::STATE_WRITING_HEAD > $this->state) {
             $this->writeHead();
         }
+
+        $this->ended = true;
     }
 
+    /** @internal */
     public function handleDrain()
     {
-        $this->emit('drain', array($this));
+        $this->emit('drain');
     }
 
+    /** @internal */
     public function handleData($data)
     {
         $this->buffer .= $data;
 
-        if (false !== strpos($this->buffer, "\r\n\r\n")) {
-            list($response, $bodyChunk) = $this->parseResponse($this->buffer);
+        // buffer until double CRLF (or double LF for compatibility with legacy servers)
+        if (false !== strpos($this->buffer, "\r\n\r\n") || false !== strpos($this->buffer, "\n\n")) {
+            try {
+                list($response, $bodyChunk) = $this->parseResponse($this->buffer);
+            } catch (\InvalidArgumentException $exception) {
+                $this->emit('error', array($exception));
+            }
 
             $this->buffer = null;
 
@@ -140,14 +148,16 @@ class Request implements WritableStreamInterface
             $this->stream->removeListener('data', array($this, 'handleData'));
             $this->stream->removeListener('end', array($this, 'handleEnd'));
             $this->stream->removeListener('error', array($this, 'handleError'));
+            $this->stream->removeListener('close', array($this, 'handleClose'));
 
-            $this->response = $response;
+            if (!isset($response)) {
+                return;
+            }
 
-            $response->on('end', function () {
-                $this->close();
-            });
-            $response->on('error', function (\Exception $error) {
-                $this->closeError(new \RuntimeException(
+            $response->on('close', array($this, 'close'));
+            $that = $this;
+            $response->on('error', function (\Exception $error) use ($that) {
+                $that->closeError(new \RuntimeException(
                     "An error occured in the response",
                     0,
                     $error
@@ -160,14 +170,16 @@ class Request implements WritableStreamInterface
         }
     }
 
+    /** @internal */
     public function handleEnd()
     {
         $this->closeError(new \RuntimeException(
-            "Connection closed before receiving response"
+            "Connection ended before receiving response"
         ));
     }
 
-    public function handleError($error)
+    /** @internal */
+    public function handleError(\Exception $error)
     {
         $this->closeError(new \RuntimeException(
             "An error occurred in the underlying stream",
@@ -176,28 +188,36 @@ class Request implements WritableStreamInterface
         ));
     }
 
+    /** @internal */
+    public function handleClose()
+    {
+        $this->close();
+    }
+
+    /** @internal */
     public function closeError(\Exception $error)
     {
         if (self::STATE_END <= $this->state) {
             return;
         }
-        $this->emit('error', array($error, $this));
-        $this->close($error);
+        $this->emit('error', array($error));
+        $this->close();
     }
 
-    public function close(\Exception $error = null)
+    public function close()
     {
         if (self::STATE_END <= $this->state) {
             return;
         }
 
         $this->state = self::STATE_END;
+        $this->pendingWrites = '';
 
         if ($this->stream) {
             $this->stream->close();
         }
 
-        $this->emit('end', array($error, $this->response, $this));
+        $this->emit('close');
         $this->removeAllListeners();
     }
 
@@ -227,11 +247,22 @@ class Request implements WritableStreamInterface
 
     protected function connect()
     {
+        $scheme = $this->requestData->getScheme();
+        if ($scheme !== 'https' && $scheme !== 'http') {
+            return Promise\reject(
+                new \InvalidArgumentException('Invalid request URL given')
+            );
+        }
+
         $host = $this->requestData->getHost();
         $port = $this->requestData->getPort();
 
+        if ($scheme === 'https') {
+            $host = 'tls://' . $host;
+        }
+
         return $this->connector
-            ->create($host, $port);
+            ->connect($host . ':' . $port);
     }
 
     public function setResponseFactory($factory)

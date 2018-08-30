@@ -4,8 +4,8 @@ namespace React\ChildProcess;
 
 use Evenement\EventEmitter;
 use React\EventLoop\LoopInterface;
-use React\EventLoop\Timer\TimerInterface;
-use React\Stream\Stream;
+use React\Stream\ReadableResourceStream;
+use React\Stream\WritableResourceStream;
 
 /**
  * Process component.
@@ -44,12 +44,16 @@ class Process extends EventEmitter
     * @param string $cwd     Current working directory or null to inherit
     * @param array  $env     Environment variables or null to inherit
     * @param array  $options Options for proc_open()
-    * @throws RuntimeException When proc_open() is not installed
+    * @throws LogicException On windows or when proc_open() is not installed
     */
     public function __construct($cmd, $cwd = null, array $env = null, array $options = array())
     {
+        if (substr(strtolower(PHP_OS), 0, 3) === 'win') {
+            throw new \LogicException('Windows isn\'t supported due to the blocking nature of STDIN/STDOUT/STDERR pipes.');
+        }
+
         if (!function_exists('proc_open')) {
-            throw new \RuntimeException('The Process class relies on proc_open(), which is not available on your PHP installation.');
+            throw new \LogicException('The Process class relies on proc_open(), which is not available on your PHP installation.');
         }
 
         $this->cmd = $cmd;
@@ -111,28 +115,28 @@ class Process extends EventEmitter
                 return;
             }
 
-            $loop->addPeriodicTimer($interval, function (TimerInterface $timer) use ($that) {
+            // process already closed => report immediately
+            if (!$that->isRunning()) {
+                $that->close();
+                $that->emit('exit', array($that->getExitCode(), $that->getTermSignal()));
+                return;
+            }
+
+            // close not detected immediately => check regularly
+            $loop->addPeriodicTimer($interval, function ($timer) use ($that, $loop) {
                 if (!$that->isRunning()) {
+                    $loop->cancelTimer($timer);
                     $that->close();
-                    $timer->cancel();
                     $that->emit('exit', array($that->getExitCode(), $that->getTermSignal()));
                 }
             });
         };
 
-        $this->stdin  = new Stream($this->pipes[0], $loop);
-        $this->stdin->pause();
-        $this->stdout = new Stream($this->pipes[1], $loop);
+        $this->stdin  = new WritableResourceStream($this->pipes[0], $loop);
+        $this->stdout = new ReadableResourceStream($this->pipes[1], $loop);
         $this->stdout->on('close', $streamCloseHandler);
-        $this->stderr = new Stream($this->pipes[2], $loop);
+        $this->stderr = new ReadableResourceStream($this->pipes[2], $loop);
         $this->stderr->on('close', $streamCloseHandler);
-
-        // legacy PHP < 5.4 SEGFAULTs for unbuffered, non-blocking reads
-        // work around by enabling read buffer again
-        if (PHP_VERSION_ID < 50400) {
-            stream_set_read_buffer($this->pipes[1], 1);
-            stream_set_read_buffer($this->pipes[2], 1);
-        }
     }
 
     /**
@@ -181,6 +185,10 @@ class Process extends EventEmitter
      */
     public function terminate($signal = null)
     {
+        if ($this->process === null) {
+            return false;
+        }
+
         if ($signal !== null) {
             return proc_terminate($this->process, $signal);
         }

@@ -1,19 +1,14 @@
 <?php
 
-use React\HttpClient\Factory;
+use React\HttpClient\Client;
 use React\HttpClient\Response;
 
 require __DIR__ . '/../vendor/autoload.php';
 
 $loop = React\EventLoop\Factory::create();
+$client = new Client($loop);
 
-$resolverFactory = new React\Dns\Resolver\Factory();
-$resolver = $resolverFactory->create('8.8.8.8', $loop);
-
-$factory = new Factory();
-$client = $factory->create($loop, $resolver);
-
-$request = $client->request('GET', 'https://google.com/');
+$request = $client->request('GET', isset($argv[1]) ? $argv[1] : 'https://google.com/');
 
 $request->on('response', function (Response $response) {
     var_dump($response->getHeaders());
@@ -25,6 +20,10 @@ $request->on('response', function (Response $response) {
     $response->on('end', function () {
         echo 'DONE' . PHP_EOL;
     });
+});
+
+$request->on('error', function (\Exception $e) {
+    echo $e;
 });
 
 $request->end();

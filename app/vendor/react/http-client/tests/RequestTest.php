@@ -5,10 +5,10 @@ namespace React\Tests\HttpClient;
 use React\HttpClient\Request;
 use React\HttpClient\RequestData;
 use React\Stream\Stream;
-use React\Promise\FulfilledPromise;
+use React\Stream\DuplexResourceStream;
 use React\Promise\RejectedPromise;
-use React\Promise;
 use React\Promise\Deferred;
+use React\Promise\Promise;
 
 class RequestTest extends TestCase
 {
@@ -17,11 +17,11 @@ class RequestTest extends TestCase
 
     public function setUp()
     {
-        $this->stream = $this->getMockBuilder('React\Stream\Stream')
+        $this->stream = $this->getMockBuilder('React\Socket\ConnectionInterface')
             ->disableOriginalConstructor()
             ->getMock();
 
-        $this->connector = $this->getMockBuilder('React\SocketClient\ConnectorInterface')
+        $this->connector = $this->getMockBuilder('React\Socket\ConnectorInterface')
             ->getMock();
 
         $this->response = $this->getMockBuilder('React\HttpClient\Response')
@@ -54,21 +54,29 @@ class RequestTest extends TestCase
             ->method('on')
             ->with('error', $this->identicalTo(array($request, 'handleError')));
         $this->stream
-            ->expects($this->at(5))
-            ->method('removeListener')
-            ->with('drain', $this->identicalTo(array($request, 'handleDrain')));
+            ->expects($this->at(4))
+            ->method('on')
+            ->with('close', $this->identicalTo(array($request, 'handleClose')));
         $this->stream
             ->expects($this->at(6))
             ->method('removeListener')
-            ->with('data', $this->identicalTo(array($request, 'handleData')));
+            ->with('drain', $this->identicalTo(array($request, 'handleDrain')));
         $this->stream
             ->expects($this->at(7))
             ->method('removeListener')
-            ->with('end', $this->identicalTo(array($request, 'handleEnd')));
+            ->with('data', $this->identicalTo(array($request, 'handleData')));
         $this->stream
             ->expects($this->at(8))
             ->method('removeListener')
+            ->with('end', $this->identicalTo(array($request, 'handleEnd')));
+        $this->stream
+            ->expects($this->at(9))
+            ->method('removeListener')
             ->with('error', $this->identicalTo(array($request, 'handleError')));
+        $this->stream
+            ->expects($this->at(10))
+            ->method('removeListener')
+            ->with('close', $this->identicalTo(array($request, 'handleClose')));
 
         $response = $this->response;
 
@@ -78,7 +86,7 @@ class RequestTest extends TestCase
 
         $response->expects($this->at(0))
             ->method('on')
-            ->with('end', $this->anything())
+            ->with('close', $this->anything())
             ->will($this->returnCallback(function ($event, $cb) use (&$endCallback) {
                 $endCallback = $cb;
             }));
@@ -97,18 +105,13 @@ class RequestTest extends TestCase
             ->with($response);
 
         $request->on('response', $handler);
-        $request->on('close', $this->expectCallableNever());
+        $request->on('end', $this->expectCallableNever());
 
         $handler = $this->createCallableMock();
         $handler->expects($this->once())
-            ->method('__invoke')
-            ->with(
-                null,
-                $this->isInstanceof('React\HttpClient\Response'),
-                $this->isInstanceof('React\HttpClient\Request')
-            );
+            ->method('__invoke');
 
-        $request->on('end', $handler);
+        $request->on('close', $handler);
         $request->end();
 
         $request->handleData("HTTP/1.0 200 OK\r\n");
@@ -131,29 +134,23 @@ class RequestTest extends TestCase
         $handler->expects($this->once())
             ->method('__invoke')
             ->with(
-                $this->isInstanceOf('RuntimeException'),
-                $this->isInstanceOf('React\HttpClient\Request')
+                $this->isInstanceOf('RuntimeException')
             );
 
         $request->on('error', $handler);
 
         $handler = $this->createCallableMock();
         $handler->expects($this->once())
-            ->method('__invoke')
-            ->with(
-                $this->isInstanceOf('RuntimeException'),
-                null,
-                $this->isInstanceOf('React\HttpClient\Request')
-            );
+            ->method('__invoke');
 
-        $request->on('end', $handler);
-        $request->on('close', $this->expectCallableNever());
+        $request->on('close', $handler);
+        $request->on('end', $this->expectCallableNever());
 
         $request->end();
     }
 
     /** @test */
-    public function requestShouldEmitErrorIfConnectionEndsBeforeResponseIsParsed()
+    public function requestShouldEmitErrorIfConnectionClosesBeforeResponseIsParsed()
     {
         $requestData = new RequestData('GET', 'http://www.example.com');
         $request = new Request($this->connector, $requestData);
@@ -164,23 +161,17 @@ class RequestTest extends TestCase
         $handler->expects($this->once())
             ->method('__invoke')
             ->with(
-                $this->isInstanceOf('RuntimeException'),
-                $this->isInstanceOf('React\HttpClient\Request')
+                $this->isInstanceOf('RuntimeException')
             );
 
         $request->on('error', $handler);
 
         $handler = $this->createCallableMock();
         $handler->expects($this->once())
-            ->method('__invoke')
-            ->with(
-                $this->isInstanceOf('RuntimeException'),
-                null,
-                $this->isInstanceOf('React\HttpClient\Request')
-            );
+            ->method('__invoke');
 
-        $request->on('end', $handler);
-        $request->on('close', $this->expectCallableNever());
+        $request->on('close', $handler);
+        $request->on('end', $this->expectCallableNever());
 
         $request->end();
         $request->handleEnd();
@@ -198,43 +189,85 @@ class RequestTest extends TestCase
         $handler->expects($this->once())
             ->method('__invoke')
             ->with(
-                $this->isInstanceOf('Exception'),
-                $this->isInstanceOf('React\HttpClient\Request')
+                $this->isInstanceOf('Exception')
             );
 
         $request->on('error', $handler);
 
         $handler = $this->createCallableMock();
         $handler->expects($this->once())
-            ->method('__invoke')
-            ->with(
-                $this->isInstanceOf('Exception'),
-                null,
-                $this->isInstanceOf('React\HttpClient\Request')
-            );
+            ->method('__invoke');
 
-        $request->on('end', $handler);
-        $request->on('close', $this->expectCallableNever());
+        $request->on('close', $handler);
+        $request->on('end', $this->expectCallableNever());
 
         $request->end();
         $request->handleError(new \Exception('test'));
     }
 
-    /**
-     * @test
-     * @expectedException Exception
-     * @expectedExceptionMessage something failed
-     */
-    public function requestDoesNotHideErrors()
+    /** @test */
+    public function requestShouldEmitErrorIfGuzzleParseThrowsException()
     {
         $requestData = new RequestData('GET', 'http://www.example.com');
         $request = new Request($this->connector, $requestData);
 
-        $this->rejectedConnectionMock();
+        $this->successfulConnectionMock();
 
-        $request->on('error', function () {
-            throw new \Exception('something failed');
-        });
+        $handler = $this->createCallableMock();
+        $handler->expects($this->once())
+            ->method('__invoke')
+            ->with(
+                $this->isInstanceOf('\InvalidArgumentException')
+            );
+
+        $request->on('error', $handler);
+
+        $request->end();
+        $request->handleData("\r\n\r\n");
+    }
+
+    /**
+     * @test
+     */
+    public function requestShouldEmitErrorIfUrlIsInvalid()
+    {
+        $requestData = new RequestData('GET', 'ftp://www.example.com');
+        $request = new Request($this->connector, $requestData);
+
+        $handler = $this->createCallableMock();
+        $handler->expects($this->once())
+            ->method('__invoke')
+            ->with(
+                $this->isInstanceOf('\InvalidArgumentException')
+            );
+
+        $request->on('error', $handler);
+
+        $this->connector->expects($this->never())
+            ->method('connect');
+
+        $request->end();
+    }
+
+    /**
+     * @test
+     */
+    public function requestShouldEmitErrorIfUrlHasNoScheme()
+    {
+        $requestData = new RequestData('GET', 'www.example.com');
+        $request = new Request($this->connector, $requestData);
+
+        $handler = $this->createCallableMock();
+        $handler->expects($this->once())
+            ->method('__invoke')
+            ->with(
+                $this->isInstanceOf('\InvalidArgumentException')
+            );
+
+        $request->on('error', $handler);
+
+        $this->connector->expects($this->never())
+            ->method('connect');
 
         $request->end();
     }
@@ -248,13 +281,9 @@ class RequestTest extends TestCase
         $this->successfulConnectionMock();
 
         $this->stream
-            ->expects($this->at(4))
+            ->expects($this->once())
             ->method('write')
-            ->with($this->matchesRegularExpression("#^POST / HTTP/1\.0\r\nHost: www.example.com\r\nUser-Agent:.*\r\n\r\n$#"));
-        $this->stream
-            ->expects($this->at(5))
-            ->method('write')
-            ->with($this->identicalTo("some post data"));
+            ->with($this->matchesRegularExpression("#^POST / HTTP/1\.0\r\nHost: www.example.com\r\nUser-Agent:.*\r\n\r\nsome post data$#"));
 
         $factory = $this->createCallableMock();
         $factory->expects($this->once())
@@ -278,13 +307,9 @@ class RequestTest extends TestCase
         $this->successfulConnectionMock();
 
         $this->stream
-            ->expects($this->at(4))
-            ->method('write')
-            ->with($this->matchesRegularExpression("#^POST / HTTP/1\.0\r\nHost: www.example.com\r\nUser-Agent:.*\r\n\r\n$#"));
-        $this->stream
             ->expects($this->at(5))
             ->method('write')
-            ->with($this->identicalTo("some"));
+            ->with($this->matchesRegularExpression("#^POST / HTTP/1\.0\r\nHost: www.example.com\r\nUser-Agent:.*\r\n\r\nsome$#"));
         $this->stream
             ->expects($this->at(6))
             ->method('write')
@@ -319,19 +344,12 @@ class RequestTest extends TestCase
         $resolveConnection = $this->successfulAsyncConnectionMock();
 
         $this->stream
-            ->expects($this->at(4))
-            ->method('write')
-            ->with($this->matchesRegularExpression("#^POST / HTTP/1\.0\r\nHost: www.example.com\r\nUser-Agent:.*\r\n\r\n$#"));
-        $this->stream
             ->expects($this->at(5))
             ->method('write')
-            ->with($this->identicalTo("some"));
+            ->with($this->matchesRegularExpression("#^POST / HTTP/1\.0\r\nHost: www.example.com\r\nUser-Agent:.*\r\n\r\nsomepost$#"))
+            ->willReturn(true);
         $this->stream
             ->expects($this->at(6))
-            ->method('write')
-            ->with($this->identicalTo("post"));
-        $this->stream
-            ->expects($this->at(7))
             ->method('write')
             ->with($this->identicalTo("data"));
 
@@ -345,12 +363,60 @@ class RequestTest extends TestCase
         $this->assertFalse($request->write("some"));
         $this->assertFalse($request->write("post"));
 
+        $request->on('drain', $this->expectCallableOnce());
         $request->once('drain', function () use ($request) {
             $request->write("data");
             $request->end();
         });
 
         $resolveConnection();
+
+        $request->handleData("HTTP/1.0 200 OK\r\n");
+        $request->handleData("Content-Type: text/plain\r\n");
+        $request->handleData("\r\nbody");
+    }
+
+    /** @test */
+    public function writeWithAPostRequestShouldForwardDrainEventIfFirstChunkExceedsBuffer()
+    {
+        $requestData = new RequestData('POST', 'http://www.example.com');
+        $request = new Request($this->connector, $requestData);
+
+        $this->stream = $this->getMockBuilder('React\Socket\Connection')
+            ->disableOriginalConstructor()
+            ->setMethods(array('write'))
+            ->getMock();
+
+        $resolveConnection = $this->successfulAsyncConnectionMock();
+
+        $this->stream
+            ->expects($this->at(0))
+            ->method('write')
+            ->with($this->matchesRegularExpression("#^POST / HTTP/1\.0\r\nHost: www.example.com\r\nUser-Agent:.*\r\n\r\nsomepost$#"))
+            ->willReturn(false);
+        $this->stream
+            ->expects($this->at(1))
+            ->method('write')
+            ->with($this->identicalTo("data"));
+
+        $factory = $this->createCallableMock();
+        $factory->expects($this->once())
+            ->method('__invoke')
+            ->will($this->returnValue($this->response));
+
+        $request->setResponseFactory($factory);
+
+        $this->assertFalse($request->write("some"));
+        $this->assertFalse($request->write("post"));
+
+        $request->on('drain', $this->expectCallableOnce());
+        $request->once('drain', function () use ($request) {
+            $request->write("data");
+            $request->end();
+        });
+
+        $resolveConnection();
+        $this->stream->emit('drain');
 
         $request->handleData("HTTP/1.0 200 OK\r\n");
         $request->handleData("Content-Type: text/plain\r\n");
@@ -366,13 +432,9 @@ class RequestTest extends TestCase
         $this->successfulConnectionMock();
 
         $this->stream
-            ->expects($this->at(4))
-            ->method('write')
-            ->with($this->matchesRegularExpression("#^POST / HTTP/1\.0\r\nHost: www.example.com\r\nUser-Agent:.*\r\n\r\n$#"));
-        $this->stream
             ->expects($this->at(5))
             ->method('write')
-            ->with($this->identicalTo("some"));
+            ->with($this->matchesRegularExpression("#^POST / HTTP/1\.0\r\nHost: www.example.com\r\nUser-Agent:.*\r\n\r\nsome$#"));
         $this->stream
             ->expects($this->at(6))
             ->method('write')
@@ -394,7 +456,7 @@ class RequestTest extends TestCase
         $request->setResponseFactory($factory);
 
         $stream = fopen('php://memory', 'r+');
-        $stream = new Stream($stream, $loop);
+        $stream = class_exists('React\Stream\DuplexResourceStream') ? new DuplexResourceStream($stream, $loop) : new Stream($stream, $loop);
 
         $stream->pipe($request);
         $stream->emit('data', array('some'));
@@ -408,15 +470,103 @@ class RequestTest extends TestCase
 
     /**
      * @test
-     * @expectedException InvalidArgumentException
-     * @expectedExceptionMessage $data must be null or scalar
      */
-    public function endShouldOnlyAcceptScalars()
+    public function writeShouldStartConnecting()
     {
         $requestData = new RequestData('POST', 'http://www.example.com');
         $request = new Request($this->connector, $requestData);
 
-        $request->end(array());
+        $this->connector->expects($this->once())
+                        ->method('connect')
+                        ->with('www.example.com:80')
+                        ->willReturn(new Promise(function () { }));
+
+        $request->write('test');
+    }
+
+    /**
+     * @test
+     */
+    public function endShouldStartConnectingAndChangeStreamIntoNonWritableMode()
+    {
+        $requestData = new RequestData('POST', 'http://www.example.com');
+        $request = new Request($this->connector, $requestData);
+
+        $this->connector->expects($this->once())
+                        ->method('connect')
+                        ->with('www.example.com:80')
+                        ->willReturn(new Promise(function () { }));
+
+        $request->end();
+
+        $this->assertFalse($request->isWritable());
+    }
+
+    /**
+     * @test
+     */
+    public function closeShouldEmitCloseEvent()
+    {
+        $requestData = new RequestData('POST', 'http://www.example.com');
+        $request = new Request($this->connector, $requestData);
+
+        $request->on('close', $this->expectCallableOnce());
+        $request->close();
+    }
+
+    /**
+     * @test
+     */
+    public function writeAfterCloseReturnsFalse()
+    {
+        $requestData = new RequestData('POST', 'http://www.example.com');
+        $request = new Request($this->connector, $requestData);
+
+        $request->close();
+
+        $this->assertFalse($request->isWritable());
+        $this->assertFalse($request->write('nope'));
+    }
+
+    /**
+     * @test
+     */
+    public function endAfterCloseIsNoOp()
+    {
+        $requestData = new RequestData('POST', 'http://www.example.com');
+        $request = new Request($this->connector, $requestData);
+
+        $this->connector->expects($this->never())
+                        ->method('connect');
+
+        $request->close();
+        $request->end();
+    }
+
+    /**
+     * @test
+     */
+    public function closeShouldCancelPendingConnectionAttempt()
+    {
+        $requestData = new RequestData('POST', 'http://www.example.com');
+        $request = new Request($this->connector, $requestData);
+
+        $promise = new Promise(function () {}, function () {
+            throw new \RuntimeException();
+        });
+
+        $this->connector->expects($this->once())
+            ->method('connect')
+            ->with('www.example.com:80')
+            ->willReturn($promise);
+
+        $request->end();
+
+        $request->on('error', $this->expectCallableNever());
+        $request->on('close', $this->expectCallableOnce());
+
+        $request->close();
+        $request->close();
     }
 
     /** @test */
@@ -431,7 +581,7 @@ class RequestTest extends TestCase
 
         $response->expects($this->at(0))
             ->method('on')
-            ->with('end', $this->anything());
+            ->with('close', $this->anything());
         $response->expects($this->at(1))
             ->method('on')
             ->with('error', $this->anything())
@@ -462,11 +612,11 @@ class RequestTest extends TestCase
         $requestData = new RequestData('GET', 'http://www.example.com');
         $request = new Request($this->connector, $requestData);
 
-        $request->on('end', function () {});
-        $this->assertCount(1, $request->listeners('end'));
+        $request->on('close', function () {});
+        $this->assertCount(1, $request->listeners('close'));
 
         $request->close();
-        $this->assertCount(0, $request->listeners('end'));
+        $this->assertCount(0, $request->listeners('close'));
     }
 
     private function successfulConnectionMock()
@@ -480,12 +630,13 @@ class RequestTest extends TestCase
 
         $this->connector
             ->expects($this->once())
-            ->method('create')
-            ->with('www.example.com', 80)
+            ->method('connect')
+            ->with('www.example.com:80')
             ->will($this->returnValue($deferred->promise()));
 
-        return function () use ($deferred) {
-            $deferred->resolve($this->stream);
+        $stream = $this->stream;
+        return function () use ($deferred, $stream) {
+            $deferred->resolve($stream);
         };
     }
 
@@ -493,8 +644,8 @@ class RequestTest extends TestCase
     {
         $this->connector
             ->expects($this->once())
-            ->method('create')
-            ->with('www.example.com', 80)
+            ->method('connect')
+            ->with('www.example.com:80')
             ->will($this->returnValue(new RejectedPromise(new \RuntimeException())));
     }
 
@@ -510,7 +661,7 @@ class RequestTest extends TestCase
 
         $response->expects($this->at(0))
         ->method('on')
-        ->with('end', $this->anything());
+        ->with('close', $this->anything());
         $response->expects($this->at(1))
         ->method('on')
         ->with('error', $this->anything())
@@ -549,7 +700,7 @@ class RequestTest extends TestCase
 
         $this->stream->expects($this->once())
             ->method('emit')
-            ->with('data', ["1\r\nb\r"]);
+            ->with('data', array("1\r\nb\r"));
 
         $request->handleData("HTTP/1.0 200 OK\r\n");
         $request->handleData("Transfer-Encoding: chunked\r\n");

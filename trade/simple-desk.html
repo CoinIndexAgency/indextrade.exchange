@@ -19,6 +19,12 @@
 		$q = $__symbols[ array_rand($__symbols, 1) ];
 	}
 	
+	//получим текущий маркет-вью 
+	//
+	
+	
+	
+	
 	//echo $_symbol;
 	//echo '<pre>';
 	//var_dump($q);
@@ -38,10 +44,12 @@
 		<script>
 			var chartMain = null; // globally available
 			var curAsset = <?php echo json_encode($q); ?>;
+			var marketView = null; //текущий маркет-вью
 			
 			//тест 
 			curAsset.takerFee = 0.2; 
 			curAsset.makerFee = 0.2; 
+			
 		</script>
         
     </head>
@@ -59,8 +67,7 @@
 					include_once('_header_menu_main.html');
 				?>
                 <div class="page-title">
-                    <div class="container">
-                        
+                    <div class="container idxtAssetOverview">                        
 						<div class="row">
 							<div class="col-lg-3 col-md-3 text-center">
 								<h3><b><?php echo $q['symbol']; ?><!--EOS/ETH--></b></h3>
@@ -81,35 +88,34 @@
 							</div>
 						
 							<div class="col-lg-2 col-md-2 text-center">
-								<h3><?php echo $q['last']; ?><!--0.0171--></h3>
+								<h3 class="idxtAssetPrice"><?php echo '-'; //$q['last']; ?><!--0.0171--></h3>
 								<span class="info-box-title">Last price, <?php echo $q['cur']; ?><!--ETH--></span>
 							</div>
 							
 							<div class="col-lg-1 col-md-1 text-center">
 								<?php 
 									if ($q['change'] > 0)
-										echo '<h3 style="color:green;">+'.$q['change'].'<!-- <i class="fa fa-level-up"></i>--></h3>';
+										echo '<h3 style="color:green;" class="idxtAssetChange">'.$q['change'].'</h3>';
 									else
-										echo '<h3 style="color:red;">'.$q['change'].'<!-- <i class="fa fa-level-down"></i>--></h3>';
+										echo '<h3 style="color:red;" class="idxtAssetChange">'.$q['change'].'</h3>';
 								
 								?>
 								<!--<h3 style="color:green;">+1.22 <i class="fa fa-level-up"></i></h3>-->
 								<span class="info-box-title">Change, %</span>
 							</div>
 							
-							
 							<div class="col-lg-2 col-md-2 text-center">
-								<h3><?php echo $q['low']; ?><!--0.0168--></h3>
+								<h3 class="idxtAssetLowPrice"><?php echo '-'; //$q['low']; ?><!--0.0168--></h3>
 								<span class="info-box-title">Low price, <?php echo $q['cur']; ?><!--ETH--></span>
 							</div>
 							
 							<div class="col-lg-2 col-md-2 text-center">
-								<h3><?php echo $q['high']; ?><!--0.0174--></h3>
+								<h3 class="idxtAssetHighPrice"><?php echo '-'; // $q['high']; ?><!--0.0174--></h3>
 								<span class="info-box-title">High price, <?php echo $q['cur']; ?><!--ETH--></span>
 							</div>
 						
 							<div class="col-lg-2 col-md-2 text-center">
-								<h3><?php echo number_format($q['24hVol'], 0, '.', ' '); ?><!--23 450--></h3>
+								<h3 class="idxtAsset24hVol"><?php echo '-'; //number_format($q['24hVol'], 0, '.', ' '); ?><!--23 450--></h3>
 								<span class="info-box-title">24H Volume, <?php echo $q['cur']; ?><!--ETH--></span>
 							</div>	
 						</div>
@@ -139,7 +145,7 @@
 										<a href="javascript:void(0);" data-toggle="tooltip" data-placement="top" title="Reload" class="panel-reload"><i class="icon-reload"></i></a>
                                     </div>
                                 </div>
-                                <div class="panel-body">
+                                <div class="panel-body idxtAssetBook">
                                     
 									<div class="row" style="font-weight:bold;height:50% !important;">
 										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
@@ -152,7 +158,8 @@
 											Volume
 										</div>
 									</div>
-									
+								<div class="idxtAssetBookBUY">	
+								<!--
 									<div class="row" style="font-weight:normal;height:50% !important;">
 										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:red;">
 											0.0171
@@ -285,18 +292,22 @@
 											4.0051
 										</div>
 									</div>
-									
+								-->
+								</div>
+								
 									<!--- -->
 									<div class="row" style="">
-										<div class="col-lg-12 col-md-12 text-center" style="padding-right:0px !important; padding-left:0px !important;background-color:#ffd8d8;">
+										<div class="col-lg-12 col-md-12 text-center idxtMarketMidPrice" style="padding-right:0px !important; padding-left:0px !important;background-color:#e9e9e9;">
 											
-											<h3 style="margin-top:10px !important; margin-bottom:10px !important;"> 
-											<?php echo $q['last']; ?><!--0.0160--> <i class="fa fa-long-arrow-down"></i>
-											</h3>
-											
+												<h3 style="margin-top:10px !important; margin-bottom:10px !important;"> 
+												<?php /* echo $q['last']; */?><!--0.0160--> <!--<i class="fa fa-long-arrow-down">--></i>
+												</h3>
+																					
 										</div>
 									</div>
-									
+								
+								<div class="idxtAssetBookSELL">
+								<!--
 									<div class="row" style="font-weight:normal;height:50% !important;">
 										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:green;">
 											0.0159
@@ -440,7 +451,9 @@
 											4.0051
 										</div>
 									</div>
-									
+								-->
+								</div>
+								
                                 </div>
                             </div>
                         </div>
@@ -742,7 +755,7 @@
 			/* 
 			
 		   */
-			idxt.numCodes = [49,50,51,52,53,54,55,56,57,190];
+		    idxt.numCodes = [49,50,51,52,53,54,55,56,57,190];
 			
 		    $('.idxtBuyForm').find('.idxtPrice,.idxtAmount').keyup(function(e){
 				var _code = e.keyCode;
@@ -752,7 +765,18 @@
 						return;
 					}
 					
-					idxt.calcBuyOrder();
+					idxt.calcOrder('BUY');
+			});
+			
+			$('.idxtSellForm').find('.idxtPrice,.idxtAmount').keyup(function(e){
+				var _code = e.keyCode;
+					
+					if (idxt.numCodes.indexOf( _code ) == -1){
+						e.stopImmediatePropagation();
+						return;
+					}
+					
+					idxt.calcOrder('SELL');
 			});
 			
 			
@@ -771,6 +795,22 @@
 				else
 					el.removeClass('disabled');
 			});
+			
+			$('.idxtSellForm').find('.idxtSellBtn').unbind('click').on('click', function(e){
+				var el = $(e.currentTarget);
+					el.addClass('disabled');
+				
+				var form = $('.idxtSellForm');
+				
+				var price = form.find('.idxtPrice').val();
+				var amount = form.find('.idxtAmount').val();
+				
+				if (price && amount && curAsset){
+					idxt.createAndSendOrder(el, price, amount, 'SELL', curAsset.symbol);
+				}
+				else
+					el.removeClass('disabled');
+			});
 		   
 		    idxt.createAndSendOrder = function(el, price, amount, side, symbol){
 				if (!price || !amount || !side || !symbol) return;
@@ -778,38 +818,174 @@
 				$.post('/orders/new', {price: price, amount: amount, side: side, symbol: symbol}, function(d, status, dType){
 					console.log( [d, status, dType]  );
 					
-					el.removeClass('disabled');
+					if (d && d.data && d.data.orderID){
+						console.log('Order Accepted! ID: ' + d.data.orderID);
+					}
+					
+					el.removeClass('disabled');					
 				});			
 		    };
 			
-			idxt.calcBuyOrder = function(){
-				var form = $('.idxtBuyForm');
-				
-				console.log( form.find('.idxtPrice').val() );
+			idxt.calcOrder = function(type){
+				if (type == 'BUY'){
+					var form = $('.idxtBuyForm');
+					var fee = curAsset.takerFee;
+				}
+				else
+				if (type == 'SELL'){
+					var form = $('.idxtSellForm');
+					var fee = curAsset.makerFee;
+				}
+				else
+					return;
 				
 				var price = parseFloat( form.find('.idxtPrice').val() );
 				var amount = parseFloat( form.find('.idxtAmount').val() );
 				
-				console.log( [price, amount] );
-				
-				var fee = curAsset.takerFee; 
-					if (!fee)
-						fee = 0.2;
+				if (!fee)
+					fee = 0.2;
 				
 				var total = price * amount;
-				
-				console.log( total );
-				
 				var calcfee = Math.round( (total / 100) * fee, 3);
 				
 				if (calcfee < 0.001) 
 					calcfee = 0.001;
 					
-				form.find('.idxtTotal').val( total );
-				form.find('.idxtTradeFee').html( calcfee );				
+				form.find('.idxtTotal').val( Big(total).toPrecision(6) );
+				form.find('.idxtTradeFee').html( Big(calcfee).toPrecision(6) );				
 			};
-		    
-		   
+			
+			//рендер текущего рынка
+			idxt.renderMarketView = function(obj){
+				if (!obj) return;
+				//снчала по инструменту 
+				var ael = $('.idxtAssetOverview'); 
+				var oel = $('.idxtAssetBook'); 
+					
+				if (obj.stat.PRICE.DIFF_PRC > 0){
+					ael.find('.idxtAssetChange').html( obj.stat.PRICE.DIFF_PRC ).css({'color':'green'});
+					
+					oel.find('.idxtMarketMidPrice').css({'background-color':'#caf9b9'}).html('<h3 style="margin-top:10px !important; margin-bottom:10px !important;">' + Big(obj.stat.PRICE.MID).toPrecision(6) + ' <i class="fa fa-long-arrow-up"></i></h3>');
+				}
+				else 
+				if (obj.stat.PRICE.DIFF_PRC < 0){
+					ael.find('.idxtAssetChange').html( obj.stat.PRICE.DIFF_PRC ).css({'color':'red'});
+					
+					oel.find('.idxtMarketMidPrice').css({'background-color':'#ffd8d8'}).html('<h3 style="margin-top:10px !important; margin-bottom:10px !important;">' + Big(obj.stat.PRICE.MID).toPrecision(6) + ' <i class="fa fa-long-arrow-down"></i></h3>');
+				}
+				else 
+				if (obj.stat.PRICE.DIFF_PRC == 0){
+					ael.find('.idxtAssetChange').html( obj.stat.PRICE.DIFF_PRC ).css({'color':'grey'});
+					
+					oel.find('.idxtMarketMidPrice').css({'background-color':'#e9e9e9'}).html('<h3 style="margin-top:10px !important; margin-bottom:10px !important;">' + Big(obj.stat.PRICE.MID).toPrecision(6) + ' &nbsp;</h3>');
+				}
+					
+				ael.find('.idxtAssetPrice').html( obj.stat.PRICE.MID );
+				
+				if (obj.stat.OHLC && obj.stat.OHLC.CURR){
+					ael.find('.idxtAssetLowPrice').html( obj.stat.OHLC.CURR.LOW );
+					ael.find('.idxtAssetHighPrice').html( obj.stat.OHLC.CURR.HIGH );
+					ael.find('.idxtAsset24hVol').html( obj.stat.OHLC.CURR.VOL24H );
+				}
+				
+				
+				//-----
+				if (obj.book){
+					if (obj.book.BUY){
+						var _buyBook = obj.book.BUY;
+							//_buyBook.reverse();
+						
+						if (_buyBook.length > 14)
+							_buyBook = _buyBook.slice(0, 13);
+							
+						_buyBook.reverse();
+						
+						var _str = '';
+							
+							_.each(_buyBook, function(val, i){
+								_str = _str + ' ' + 
+									'<div class="row" style="font-weight:normal;height:50% !important;">' + 
+										'<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:red;">' +
+											Big(val[0]).toPrecision(6) + 
+										'</div>' +
+										'<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">' +
+											Big(val[1]).toPrecision(6) + 
+										'</div>' +
+										'<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">' +
+											Big(val[0] * val[1]).toPrecision(6) + 
+										'</div>' +
+									'</div>';
+							});
+							
+						oel.find('.idxtAssetBookBUY').html( _str );
+					}
+					
+					
+					if (obj.book.SELL){
+						var _sellBook = obj.book.SELL;
+							//_sellBook.reverse();
+						
+						if (_sellBook.length > 14)
+							_sellBook = _sellBook.slice(0, 13);
+							
+						//_sellBook.reverse();
+						
+						var _str = '';
+							
+							_.each(_sellBook, function(val, i){
+								_str = _str + ' ' + 
+									'<div class="row" style="font-weight:normal;height:50% !important;">' + 
+										'<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:green;">' +
+											Big(val[0]).toPrecision(6) + 
+										'</div>' +
+										'<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">' +
+											Big(val[1]).toPrecision(6) + 
+										'</div>' +
+										'<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">' +
+											/*Number.parseFloat(val[0] * val[1]).toPrecision(4)*/
+											Big(val[0] * val[1]).toPrecision(6) + 
+										'</div>' +
+									'</div>';
+							});
+							
+						oel.find('.idxtAssetBookSELL').html( _str );
+					}
+				
+				}
+				
+				if (obj.stat.PRICE){
+					var form = $('.idxtBuyForm');
+					
+					if (_.isEmpty( form.find('.idxtPrice').val() )){
+						//для удобства подставим 
+						if (obj.stat.PRICE.BUY)
+							form.find('.idxtPrice').val( obj.stat.PRICE.BUY );
+					}
+					
+					var form = $('.idxtSellForm');
+					
+					if (_.isEmpty( form.find('.idxtPrice').val() )){
+						//для удобства подставим 
+						if (obj.stat.PRICE.SELL)
+							form.find('.idxtPrice').val( obj.stat.PRICE.SELL );
+					}					
+				}
+
+					
+			}
+			
+			
+			
+			
+			
+			//загружаем текущий маркет овервью 
+			if (curAsset && curAsset.symbol){
+				$.getJSON('/market/overview?symbol=' + curAsset.symbol, function(d){
+					if (d && !d.error && d.data){
+						idxt.renderMarketView( d.data );
+					}
+				});
+			} 
 		   
 		</script>
         

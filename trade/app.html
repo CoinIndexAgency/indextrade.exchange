@@ -12,6 +12,7 @@ $log = initLog('idxtTradingApp');
 use \Psr\Http\Message\ServerRequestInterface as Request;
 use \Psr\Http\Message\ResponseInterface as Response;
 use Centrifugo\Centrifugo;
+use Ramsey\Uuid;
 
 /**
 echo "\n\n";
@@ -69,13 +70,13 @@ $app->post('/orders/new', function (Request $request, Response $response, array 
 	
 	if (is_numeric($quote['price']) && is_numeric($quote['amount']) && is_string($quote['side']) && is_string($quote['symbol'])){
 		
-		if ($quote['side'] != 'BUY' || $quote['side'] != 'SELL'){
-			return $response->withJson(Array('status' => 'ERROR', 'error' => 'Invalid quote type', 'data' => null), 200);
+		if (!in_array($quote['side'], Array('BUY', 'SELL'))){
+			return $response->withJson(Array('status' => 'ERROR', 'error' => 'Invalid quote type', 'data' => $quote), 200);
 		}
 		
 		//ну, пробуем создать ордер, зафиксировать его а дальше уже разбереться движок 
 		$order = Array(
-			'id'	=> Ramsey\Uuid\Uuid::uuid4()->toString(),
+			'id'	=> \Ramsey\Uuid\Uuid::uuid4()->toString(),
 			'uid' 	=> $uid,
 			'pair' 	=> $quote['symbol'],
 			'type'	=> 'LIMIT',
@@ -119,6 +120,27 @@ $app->post('/orders/new', function (Request $request, Response $response, array 
     return $resp;
 });
 
+//возвращает текущий маркет-вью по инструменту 
+$app->get('/market/overview', function (Request $request, Response $response, array $args) {
+    $symbol = $request->getQueryParam('symbol', null);
+	
+	if (empty($symbol)){
+		return $response->withJson(Array('status' => 'ERROR', 'error' => 'Invalid symbol', 'data' => null), 200);
+	}
+	
+	$symbol = strtoupper( $symbol );
+
+	$redis = $this->get('redis');
+	$mview = $redis->hget('INDEXTRDADE_MARKET_VIEW', $symbol);
+	
+	if (!empty($mview)){
+		$mview = json_decode( $mview, true, 16 );
+		
+		return $response->withJson(Array('status' => 'OK', 'error' => null, 'data' => $mview), 200);
+	}
+	else
+		return $response->withJson(Array('status' => 'ERROR', 'error' => 'Invalid market overview', 'data' => null), 200);
+});
 
 
 $app->run();

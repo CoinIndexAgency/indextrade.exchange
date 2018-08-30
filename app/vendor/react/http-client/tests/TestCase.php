@@ -2,7 +2,9 @@
 
 namespace React\Tests\HttpClient;
 
-class TestCase extends \PHPUnit_Framework_TestCase
+use PHPUnit\Framework\TestCase as BaseTestCase;
+
+class TestCase extends BaseTestCase
 {
     protected function expectCallableExactly($amount)
     {
@@ -20,6 +22,17 @@ class TestCase extends \PHPUnit_Framework_TestCase
         $mock
             ->expects($this->once())
             ->method('__invoke');
+
+        return $mock;
+    }
+
+    protected function expectCallableOnceWith($value)
+    {
+        $mock = $this->createCallableMock();
+        $mock
+            ->expects($this->once())
+            ->method('__invoke')
+            ->with($value);
 
         return $mock;
     }

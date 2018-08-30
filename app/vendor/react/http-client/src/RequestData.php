@@ -9,7 +9,7 @@ class RequestData
     private $headers;
     private $protocolVersion;
 
-    public function __construct($method, $url, array $headers = [], $protocolVersion = '1.0')
+    public function __construct($method, $url, array $headers = array(), $protocolVersion = '1.0')
     {
         $this->method = $method;
         $this->url = $url;
@@ -23,15 +23,24 @@ class RequestData
         $connectionHeaders = ('1.1' === $this->protocolVersion) ? array('Connection' => 'close') : array();
         $authHeaders = $this->getAuthHeaders();
 
-        return array_merge(
+        $defaults = array_merge(
             array(
                 'Host'          => $this->getHost().$port,
                 'User-Agent'    => 'React/alpha',
             ),
             $connectionHeaders,
-            $authHeaders,
-            $headers
+            $authHeaders
         );
+
+        // remove all defaults that already exist in $headers
+        $lower = array_change_key_case($headers, CASE_LOWER);
+        foreach ($defaults as $key => $_) {
+            if (isset($lower[strtolower($key)])) {
+                unset($defaults[$key]);
+            }
+        }
+
+        return array_merge($defaults, $headers);
     }
 
     public function getScheme()
@@ -56,10 +65,18 @@ class RequestData
 
     public function getPath()
     {
-        $path = parse_url($this->url, PHP_URL_PATH) ?: '/';
+        $path = parse_url($this->url, PHP_URL_PATH);
         $queryString = parse_url($this->url, PHP_URL_QUERY);
 
-        return $path.($queryString ? "?$queryString" : '');
+        // assume "/" path by default, but allow "OPTIONS *"
+        if ($path === null) {
+            $path = ($this->method === 'OPTIONS' && $queryString === null) ? '*': '/';
+        }
+        if ($queryString !== null) {
+            $path .= '?' . $queryString;
+        }
+
+        return $path;
     }
 
     public function setProtocolVersion($version)
@@ -73,8 +90,10 @@ class RequestData
 
         $data = '';
         $data .= "{$this->method} {$this->getPath()} HTTP/{$this->protocolVersion}\r\n";
-        foreach ($headers as $name => $value) {
-            $data .= "$name: $value\r\n";
+        foreach ($headers as $name => $values) {
+            foreach ((array)$values as $value) {
+                $data .= "$name: $value\r\n";
+            }
         }
         $data .= "\r\n";
 

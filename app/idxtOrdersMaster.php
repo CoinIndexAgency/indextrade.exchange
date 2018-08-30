@@ -346,6 +346,8 @@ $runtimeStats = Array(
 );
 //$client = initRedis();
 
+$redis->del('INDEXTRDADE_NEW_ORDERS_CH0');
+
 
 $loop->addPeriodicTimer(0.25, function() use (&$db, &$redis, &$ssdb, &$log, &$runtimeStats){
 	//пробуем получить один элемент
@@ -537,6 +539,14 @@ $loop->addPeriodicTimer(0.25, function() use (&$db, &$redis, &$ssdb, &$log, &$ru
 	
 	
 });
+
+
+$loop->addPeriodicTimer(5, function() use (&$redis, &$log, &$runtimeStats){
+	$tmp = $redis->llen('INDEXTRDADE_NEW_ORDERS_CH0');
+	
+	$log->info("New orders queue length: " . $tmp);	
+});
+
 
 
 $log->info('Main loop are starting...');

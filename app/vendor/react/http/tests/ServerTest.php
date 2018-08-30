@@ -2,11 +2,14 @@
 
 namespace React\Tests\Http;
 
+use React\EventLoop\Factory;
 use React\Http\Server;
-use React\Http\Response;
-use React\Http\Request;
+use Psr\Http\Message\ServerRequestInterface;
+use React\Promise\Deferred;
+use Clue\React\Block;
+use React\Promise;
 
-class ServerTest extends TestCase
+final class ServerTest extends TestCase
 {
     private $connection;
     private $socket;
@@ -25,210 +28,157 @@ class ServerTest extends TestCase
                     'isReadable',
                     'isWritable',
                     'getRemoteAddress',
+                    'getLocalAddress',
                     'pipe'
                 )
             )
             ->getMock();
 
-        $this->socket = $this->getMockBuilder('React\Socket\Server')
-            ->disableOriginalConstructor()
-            ->setMethods(null)
-            ->getMock();
+        $this->connection->method('isWritable')->willReturn(true);
+        $this->connection->method('isReadable')->willReturn(true);
+
+        $this->socket = new SocketServerStub();
     }
 
-    public function testRequestEventWillNotBeEmittedForIncompleteHeaders()
+    /**
+     * @expectedException InvalidArgumentException
+     */
+    public function testInvalidCallbackFunctionLeadsToException()
     {
-        $server = new Server($this->socket);
-        $server->on('request', $this->expectCallableNever());
-
-        $this->socket->emit('connection', array($this->connection));
-
-        $data = '';
-        $data .= "GET / HTTP/1.1\r\n";
-        $this->connection->emit('data', array($data));
+        new Server('invalid');
     }
 
-    public function testRequestEventIsEmitted()
+    public function testSimpleRequestCallsRequestHandlerOnce()
     {
-        $server = new Server($this->socket);
-        $server->on('request', $this->expectCallableOnce());
-
-        $this->socket->emit('connection', array($this->connection));
-
-        $data = $this->createGetRequest();
-        $this->connection->emit('data', array($data));
-    }
-
-    public function testRequestEvent()
-    {
-        $i = 0;
-        $requestAssertion = null;
-        $responseAssertion = null;
-
-        $server = new Server($this->socket);
-        $server->on('request', function ($request, $response) use (&$i, &$requestAssertion, &$responseAssertion) {
-            $i++;
-            $requestAssertion = $request;
-            $responseAssertion = $response;
+        $called = null;
+        $server = new Server(function (ServerRequestInterface $request) use (&$called) {
+            ++$called;
         });
 
-        $this->connection
-            ->expects($this->once())
-            ->method('getRemoteAddress')
-            ->willReturn('127.0.0.1');
-
+        $server->listen($this->socket);
         $this->socket->emit('connection', array($this->connection));
+        $this->connection->emit('data', array("GET / HTTP/1.0\r\n\r\n"));
 
-        $data = $this->createGetRequest();
-        $this->connection->emit('data', array($data));
-
-        $this->assertSame(1, $i);
-        $this->assertInstanceOf('React\Http\Request', $requestAssertion);
-        $this->assertSame('/', $requestAssertion->getPath());
-        $this->assertSame('GET', $requestAssertion->getMethod());
-        $this->assertSame('127.0.0.1', $requestAssertion->remoteAddress);
-
-        $this->assertInstanceOf('React\Http\Response', $responseAssertion);
+        $this->assertSame(1, $called);
     }
 
-    public function testRequestPauseWillbeForwardedToConnection()
+    /**
+     * @requires PHP 5.4
+     */
+    public function testSimpleRequestCallsArrayRequestHandlerOnce()
     {
-        $server = new Server($this->socket);
-        $server->on('request', function (Request $request) {
-            $request->pause();
+        $this->called = null;
+        $server = new Server(array($this, 'helperCallableOnce'));
+
+        $server->listen($this->socket);
+        $this->socket->emit('connection', array($this->connection));
+        $this->connection->emit('data', array("GET / HTTP/1.0\r\n\r\n"));
+
+        $this->assertSame(1, $this->called);
+    }
+
+    public function helperCallableOnce()
+    {
+        ++$this->called;
+    }
+
+    public function testSimpleRequestWithMiddlewareArrayProcessesMiddlewareStack()
+    {
+        $called = null;
+        $server = new Server(array(
+            function (ServerRequestInterface $request, $next) use (&$called) {
+                $called = 'before';
+                $ret = $next($request->withHeader('Demo', 'ok'));
+                $called .= 'after';
+
+                return $ret;
+            },
+            function (ServerRequestInterface $request) use (&$called) {
+                $called .= $request->getHeaderLine('Demo');
+            }
+        ));
+
+        $server->listen($this->socket);
+        $this->socket->emit('connection', array($this->connection));
+        $this->connection->emit('data', array("GET / HTTP/1.0\r\n\r\n"));
+
+        $this->assertSame('beforeokafter', $called);
+    }
+
+    public function testPostFileUpload()
+    {
+        $loop = Factory::create();
+        $deferred = new Deferred();
+        $server = new Server(function (ServerRequestInterface $request) use ($deferred) {
+            $deferred->resolve($request);
         });
 
-        $this->connection->expects($this->once())->method('pause');
+        $server->listen($this->socket);
         $this->socket->emit('connection', array($this->connection));
 
-        $data = $this->createGetRequest();
-        $this->connection->emit('data', array($data));
-    }
+        $connection = $this->connection;
+        $data = $this->createPostFileUploadRequest();
+        $loop->addPeriodicTimer(0.01, function ($timer) use ($loop, &$data, $connection) {
+            $line = array_shift($data);
+            $connection->emit('data', array($line));
 
-    public function testRequestResumeWillbeForwardedToConnection()
-    {
-        $server = new Server($this->socket);
-        $server->on('request', function (Request $request) {
-            $request->resume();
+            if (count($data) === 0) {
+                $loop->cancelTimer($timer);
+            }
         });
 
-        $this->connection->expects($this->once())->method('resume');
-        $this->socket->emit('connection', array($this->connection));
+        $parsedRequest = Block\await($deferred->promise(), $loop);
+        $this->assertNotEmpty($parsedRequest->getUploadedFiles());
+        $this->assertEmpty($parsedRequest->getParsedBody());
 
-        $data = $this->createGetRequest();
-        $this->connection->emit('data', array($data));
+        $files = $parsedRequest->getUploadedFiles();
+
+        $this->assertTrue(isset($files['file']));
+        $this->assertCount(1, $files);
+
+        $this->assertSame('hello.txt', $files['file']->getClientFilename());
+        $this->assertSame('text/plain', $files['file']->getClientMediaType());
+        $this->assertSame("hello\r\n", (string)$files['file']->getStream());
     }
 
-    public function testRequestEventWithoutBodyWillNotEmitData()
+    public function testForwardErrors()
     {
-        $never = $this->expectCallableNever();
-
-        $server = new Server($this->socket);
-        $server->on('request', function (Request $request) use ($never) {
-            $request->on('data', $never);
+        $exception = new \Exception();
+        $capturedException = null;
+        $server = new Server(function () use ($exception) {
+            return Promise\reject($exception);
+        });
+        $server->on('error', function ($error) use (&$capturedException) {
+            $capturedException = $error;
         });
 
+        $server->listen($this->socket);
         $this->socket->emit('connection', array($this->connection));
 
-        $data = $this->createGetRequest();
-        $this->connection->emit('data', array($data));
+        $data = $this->createPostFileUploadRequest();
+        $this->connection->emit('data', array(implode('', $data)));
+
+        $this->assertInstanceOf('RuntimeException', $capturedException);
+        $this->assertInstanceOf('Exception', $capturedException->getPrevious());
+        $this->assertSame($exception, $capturedException->getPrevious());
     }
 
-    public function testRequestEventWithSecondDataEventWillEmitBodyData()
+    private function createPostFileUploadRequest()
     {
-        $once = $this->expectCallableOnceWith('incomplete');
+        $boundary = "---------------------------5844729766471062541057622570";
 
-        $server = new Server($this->socket);
-        $server->on('request', function (Request $request) use ($once) {
-            $request->on('data', $once);
-        });
-
-        $this->socket->emit('connection', array($this->connection));
-
-        $data = '';
-        $data .= "POST / HTTP/1.1\r\n";
-        $data .= "Content-Length: 100\r\n";
-        $data .= "\r\n";
-        $data .= "incomplete";
-        $this->connection->emit('data', array($data));
-    }
-
-    public function testRequestEventWithPartialBodyWillEmitData()
-    {
-        $once = $this->expectCallableOnceWith('incomplete');
-
-        $server = new Server($this->socket);
-        $server->on('request', function (Request $request) use ($once) {
-            $request->on('data', $once);
-        });
-
-        $this->socket->emit('connection', array($this->connection));
-
-        $data = '';
-        $data .= "POST / HTTP/1.1\r\n";
-        $data .= "Content-Length: 100\r\n";
-        $data .= "\r\n";
-        $this->connection->emit('data', array($data));
-
-        $data = '';
-        $data .= "incomplete";
-        $this->connection->emit('data', array($data));
-    }
-
-    public function testResponseContainsPoweredByHeader()
-    {
-        $server = new Server($this->socket);
-        $server->on('request', function (Request $request, Response $response) {
-            $response->writeHead();
-            $response->end();
-        });
-
-        $buffer = '';
-
-        $this->connection
-            ->expects($this->any())
-            ->method('write')
-            ->will(
-                $this->returnCallback(
-                    function ($data) use (&$buffer) {
-                        $buffer .= $data;
-                    }
-                )
-            );
-
-        $this->socket->emit('connection', array($this->connection));
-
-        $data = $this->createGetRequest();
-        $this->connection->emit('data', array($data));
-
-        $this->assertContains("\r\nX-Powered-By: React/alpha\r\n", $buffer);
-    }
-
-    public function testParserErrorEmitted()
-    {
-        $error = null;
-        $server = new Server($this->socket);
-        $server->on('headers', $this->expectCallableNever());
-        $server->on('error', function ($message) use (&$error) {
-            $error = $message;
-        });
-
-        $this->socket->emit('connection', array($this->connection));
-
-        $data = "GET / HTTP/1.1\r\nHost: example.com\r\nConnection: close\r\nX-DATA: ";
-        $data .= str_repeat('A', 4097 - strlen($data)) . "\r\n\r\n";
-        $this->connection->emit('data', array($data));
-
-        $this->assertInstanceOf('OverflowException', $error);
-        $this->connection->expects($this->never())->method('write');
-    }
-
-    private function createGetRequest()
-    {
-        $data = "GET / HTTP/1.1\r\n";
-        $data .= "Host: example.com:80\r\n";
-        $data .= "Connection: close\r\n";
-        $data .= "\r\n";
+        $data = array();
+        $data[] = "POST / HTTP/1.1\r\n";
+        $data[] = "Content-Type: multipart/form-data; boundary=" . $boundary . "\r\n";
+        $data[] = "Content-Length: 220\r\n";
+        $data[] = "\r\n";
+        $data[]  = "--$boundary\r\n";
+        $data[] = "Content-Disposition: form-data; name=\"file\"; filename=\"hello.txt\"\r\n";
+        $data[] = "Content-type: text/plain\r\n";
+        $data[] = "\r\n";
+        $data[] = "hello\r\n";
+        $data[] = "\r\n";
+        $data[] = "--$boundary--\r\n";
 
         return $data;
     }

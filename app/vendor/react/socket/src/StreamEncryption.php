@@ -2,9 +2,9 @@
 
 namespace React\Socket;
 
-use React\Promise\Deferred;
-use React\Stream\Stream;
 use React\EventLoop\LoopInterface;
+use React\Promise\Deferred;
+use RuntimeException;
 use UnexpectedValueException;
 
 /**
@@ -16,99 +16,119 @@ use UnexpectedValueException;
 class StreamEncryption
 {
     private $loop;
-    private $method = STREAM_CRYPTO_METHOD_TLS_SERVER;
+    private $method;
+    private $server;
 
     private $errstr;
     private $errno;
 
-    private $wrapSecure = false;
-
-    public function __construct(LoopInterface $loop)
+    public function __construct(LoopInterface $loop, $server = true)
     {
-        if (!function_exists('stream_socket_enable_crypto')) {
-            throw new \BadMethodCallException('Encryption not supported on your platform (HHVM < 3.8?)');
-        }
-
         $this->loop = $loop;
+        $this->server = $server;
 
-        // See https://bugs.php.net/bug.php?id=65137
-        // https://bugs.php.net/bug.php?id=41631
-        // https://github.com/reactphp/socket-client/issues/24
-        // On versions affected by this bug we need to fread the stream until we
-        //  get an empty string back because the buffer indicator could be wrong
-        if (version_compare(PHP_VERSION, '5.6.8', '<')) {
-            $this->wrapSecure = true;
-        }
+        // support TLSv1.0+ by default and exclude legacy SSLv2/SSLv3.
+        // PHP 5.6+ supports bitmasks, legacy PHP only supports predefined
+        // constants, so apply accordingly below.
+        // Also, since PHP 5.6.7 up until before PHP 7.2.0 the main constant did
+        // only support TLSv1.0, so we explicitly apply all versions.
+        // @link http://php.net/manual/en/migration56.openssl.php#migration56.openssl.crypto-method
+        // @link https://3v4l.org/plbFn
+        if ($server) {
+            $this->method = STREAM_CRYPTO_METHOD_TLS_SERVER;
 
-        if (defined('STREAM_CRYPTO_METHOD_TLSv1_0_SERVER')) {
-            $this->method |= STREAM_CRYPTO_METHOD_TLSv1_0_SERVER;
-        }
-        if (defined('STREAM_CRYPTO_METHOD_TLSv1_1_SERVER')) {
-            $this->method |= STREAM_CRYPTO_METHOD_TLSv1_1_SERVER;
-        }
-        if (defined('STREAM_CRYPTO_METHOD_TLSv1_2_SERVER')) {
-            $this->method |= STREAM_CRYPTO_METHOD_TLSv1_2_SERVER;
+            if (defined('STREAM_CRYPTO_METHOD_TLSv1_0_SERVER')) {
+                $this->method |= STREAM_CRYPTO_METHOD_TLSv1_0_SERVER;
+            }
+            if (defined('STREAM_CRYPTO_METHOD_TLSv1_1_SERVER')) {
+                $this->method |= STREAM_CRYPTO_METHOD_TLSv1_1_SERVER;
+            }
+            if (defined('STREAM_CRYPTO_METHOD_TLSv1_2_SERVER')) {
+                $this->method |= STREAM_CRYPTO_METHOD_TLSv1_2_SERVER;
+            }
+        } else {
+            $this->method = STREAM_CRYPTO_METHOD_TLS_CLIENT;
+
+            if (defined('STREAM_CRYPTO_METHOD_TLSv1_0_CLIENT')) {
+                $this->method |= STREAM_CRYPTO_METHOD_TLSv1_0_CLIENT;
+            }
+            if (defined('STREAM_CRYPTO_METHOD_TLSv1_1_CLIENT')) {
+                $this->method |= STREAM_CRYPTO_METHOD_TLSv1_1_CLIENT;
+            }
+            if (defined('STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT')) {
+                $this->method |= STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT;
+            }
         }
     }
 
-    public function enable(Stream $stream)
+    public function enable(Connection $stream)
     {
         return $this->toggle($stream, true);
     }
 
-    public function disable(Stream $stream)
+    public function disable(Connection $stream)
     {
         return $this->toggle($stream, false);
     }
 
-    public function toggle(Stream $stream, $toggle)
+    public function toggle(Connection $stream, $toggle)
     {
         // pause actual stream instance to continue operation on raw stream socket
         $stream->pause();
 
         // TODO: add write() event to make sure we're not sending any excessive data
 
-        $deferred = new Deferred();
+        $deferred = new Deferred(function ($_, $reject) use ($toggle) {
+            // cancelling this leaves this stream in an inconsistent state…
+            $reject(new RuntimeException('Cancelled toggling encryption ' . $toggle ? 'on' : 'off'));
+        });
 
         // get actual stream socket from stream instance
         $socket = $stream->stream;
 
+        // get crypto method from context options or use global setting from constructor
+        $method = $this->method;
+        $context = stream_context_get_options($socket);
+        if (isset($context['ssl']['crypto_method'])) {
+            $method = $context['ssl']['crypto_method'];
+        }
+
         $that = $this;
-        $toggleCrypto = function () use ($socket, $deferred, $toggle, $that) {
-            $that->toggleCrypto($socket, $deferred, $toggle);
+        $toggleCrypto = function () use ($socket, $deferred, $toggle, $method, $that) {
+            $that->toggleCrypto($socket, $deferred, $toggle, $method);
         };
 
         $this->loop->addReadStream($socket, $toggleCrypto);
 
-        $wrap = $this->wrapSecure && $toggle;
+        if (!$this->server) {
+            $toggleCrypto();
+        }
 
-        return $deferred->promise()->then(function () use ($stream, $wrap) {
-            if ($wrap) {
-                $stream->bufferSize = null;
-            }
+        $loop = $this->loop;
 
+        return $deferred->promise()->then(function () use ($stream, $socket, $loop, $toggle) {
+            $loop->removeReadStream($socket);
+
+            $stream->encryptionEnabled = $toggle;
             $stream->resume();
 
             return $stream;
-        }, function($error) use ($stream) {
+        }, function($error) use ($stream, $socket, $loop) {
+            $loop->removeReadStream($socket);
             $stream->resume();
             throw $error;
         });
     }
 
-    public function toggleCrypto($socket, Deferred $deferred, $toggle)
+    public function toggleCrypto($socket, Deferred $deferred, $toggle, $method)
     {
         set_error_handler(array($this, 'handleError'));
-        $result = stream_socket_enable_crypto($socket, $toggle, $this->method);
+        $result = stream_socket_enable_crypto($socket, $toggle, $method);
         restore_error_handler();
 
         if (true === $result) {
-            $this->loop->removeStream($socket);
-
             $deferred->resolve();
         } else if (false === $result) {
-            $this->loop->removeStream($socket);
-
             $deferred->reject(new UnexpectedValueException(
                 sprintf("Unable to complete SSL/TLS handshake: %s", $this->errstr),
                 $this->errno

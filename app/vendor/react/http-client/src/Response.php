@@ -2,20 +2,18 @@
 
 namespace React\HttpClient;
 
-use Evenement\EventEmitterTrait;
+use Evenement\EventEmitter;
 use React\Stream\ReadableStreamInterface;
 use React\Stream\Util;
 use React\Stream\WritableStreamInterface;
 
 /**
- * @event data ($bodyChunk, Response $thisResponse)
+ * @event data ($bodyChunk)
  * @event error
  * @event end
  */
-class Response implements ReadableStreamInterface
+class Response extends EventEmitter implements ReadableStreamInterface
 {
-    use EventEmitterTrait;
-
     private $stream;
     private $protocol;
     private $version;
@@ -32,22 +30,16 @@ class Response implements ReadableStreamInterface
         $this->code = $code;
         $this->reasonPhrase = $reasonPhrase;
         $this->headers = $headers;
-        $normalizedHeaders = array_change_key_case($headers, CASE_LOWER);
 
-        if (isset($normalizedHeaders['transfer-encoding']) && strtolower($normalizedHeaders['transfer-encoding']) === 'chunked') {
+        if (strtolower($this->getHeaderLine('Transfer-Encoding')) === 'chunked') {
             $this->stream = new ChunkedStreamDecoder($stream);
-
-            foreach ($this->headers as $key => $value) {
-                if (strcasecmp('transfer-encoding', $key) === 0) {
-                    unset($this->headers[$key]);
-                    break;
-                }
-            }
+            $this->removeHeader('Transfer-Encoding');
         }
 
         $this->stream->on('data', array($this, 'handleData'));
         $this->stream->on('error', array($this, 'handleError'));
         $this->stream->on('end', array($this, 'handleEnd'));
+        $this->stream->on('close', array($this, 'handleClose'));
     }
 
     public function getProtocol()
@@ -75,39 +67,79 @@ class Response implements ReadableStreamInterface
         return $this->headers;
     }
 
-    public function handleData($data)
+    private function removeHeader($name)
     {
-        $this->emit('data', array($data, $this));
+        foreach ($this->headers as $key => $value) {
+            if (strcasecmp($name, $key) === 0) {
+                unset($this->headers[$key]);
+                break;
+            }
+        }
     }
 
+    private function getHeader($name)
+    {
+        $name = strtolower($name);
+        $normalized = array_change_key_case($this->headers, CASE_LOWER);
+
+        return isset($normalized[$name]) ? (array)$normalized[$name] : array();
+    }
+
+    private function getHeaderLine($name)
+    {
+        return implode(', ' , $this->getHeader($name));
+    }
+
+    /** @internal */
+    public function handleData($data)
+    {
+        if ($this->readable) {
+            $this->emit('data', array($data));
+        }
+    }
+
+    /** @internal */
     public function handleEnd()
     {
+        if (!$this->readable) {
+            return;
+        }
+        $this->emit('end');
         $this->close();
     }
 
+    /** @internal */
     public function handleError(\Exception $error)
     {
+        if (!$this->readable) {
+            return;
+        }
         $this->emit('error', array(new \RuntimeException(
             "An error occurred in the underlying stream",
             0,
             $error
-        ), $this));
+        )));
 
-        $this->close($error);
+        $this->close();
     }
 
-    public function close(\Exception $error = null)
+    /** @internal */
+    public function handleClose()
+    {
+        $this->close();
+    }
+
+    public function close()
     {
         if (!$this->readable) {
             return;
         }
 
         $this->readable = false;
-
-        $this->emit('end', array($error, $this));
-
-        $this->removeAllListeners();
         $this->stream->close();
+
+        $this->emit('close');
+        $this->removeAllListeners();
     }
 
     public function isReadable()
@@ -133,7 +165,7 @@ class Response implements ReadableStreamInterface
         $this->stream->resume();
     }
 
-    public function pipe(WritableStreamInterface $dest, array $options = [])
+    public function pipe(WritableStreamInterface $dest, array $options = array())
     {
         Util::pipe($this, $dest, $options);
 

@@ -136,7 +136,7 @@ $loop->addPeriodicTimer(0.01, function() use (&$db, &$redis, &$ssdb, &$log, &$o2
 		
 		//отправит в Centrifugu пока что так напрямую
 		$_uid = 42;		
-		$сentrifugo->publish('public#idxt' . $_uid, Array( 'message' => $res ));
+		$сentrifugo->publish('public#idxt' . $_uid, Array( 'type' => 'report', 'message' => $res ));
 		
 		$log->info( $res['msg'] . ' :: ' . $res['orderID'] . ' :: ' . $res['type'] . ' :: ' . date('r', $res['ts']/10000));
 	} 	

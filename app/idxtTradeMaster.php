@@ -223,6 +223,8 @@ function updateBook($order, $action, &$book, &$reportsQueue, $mode = 'normal'){
 		//поправка - так же как и бай 
 		krsort( $book['BOOK'][ 'SELL' ], SORT_NUMERIC );
 		
+		//$book['BOOK'][ 'SELL' ] = array_reverse( $book['BOOK'][ 'SELL' ] );
+		
 		//BUY - от максимальной до минимальной 
 		krsort( $book['BOOK'][ 'BUY' ], SORT_NUMERIC );
 		
@@ -622,6 +624,8 @@ function realExecuteOrders(&$book, $buyOrderId, $sellOrderId, &$reportsQueue){
 		//уберем полностью бай ордер 
 		unset( $book['ORDERS'][ $buyOrderId ] );
 		
+		$book['STAT']['LAST_TRADE'] = Array('price' => $realPrice, 'volume' => $buy['amount']);
+		
 		//echo "EXECUTION OK! See reports to details\n";		
 	}
 	else
@@ -682,6 +686,8 @@ function realExecuteOrders(&$book, $buyOrderId, $sellOrderId, &$reportsQueue){
 		unset( $book['ORDERS'][ $buyOrderId ] );
 		unset( $book['ORDERS'][ $sellOrderId ] );
 		
+		$book['STAT']['LAST_TRADE'] = Array('price' => $realPrice, 'volume' => $buy['amount']);
+		
 		//echo "EXECUTION OK! See reports to details\n";			
 	}
 	else
@@ -740,6 +746,8 @@ function realExecuteOrders(&$book, $buyOrderId, $sellOrderId, &$reportsQueue){
 		if (!in_array( 'PFILL', $book['ORDERS'][ $buyOrderId ]['tags'] )){
 			$book['ORDERS'][ $buyOrderId ]['tags'][] = 'PFILL'; 
 		}
+		
+		$book['STAT']['LAST_TRADE'] = Array('price' => $realPrice, 'volume' => $sell['amount']);
 		
 		//echo "EXECUTION OK! See reports to details\n";	
 	}
@@ -813,13 +821,20 @@ function rebuildBook(&$book, &$reportsQueue){
 	return true;
 }
 
+
 function buildBook(){
 	return Array(
 		'STAT' => Array(
 			'BUY' => Array('orders' => 0, 'volume' => 0),
 			'SELL' => Array('orders' => 0, 'volume' => 0),
 			'LAST_TRADE' => null,
-			'PRICE' => Array('BUY' => 0, 'SELL' => 0, 'MID' => 0)
+			'PRICE' => Array('BUY' => 0, 'SELL' => 0, 'MID' => 0, 'DIFF' => 0, 'DIFF_PRC' => 0),
+			'PREV_PRICE' => Array('BUY' => 0, 'SELL' => 0, 'MID' => 0, 'DIFF' => 0, 'DIFF_PRC' => 0),
+			
+			'OHLC' => Array(
+				'CURR' => Array('DATE' => null, 'OPEN' => 0, 'HIGH' => 0, 'LOW' => 0, 'CLOSE' => 0, 'VOL24H' => 0),
+				'PREV' => Array('DATE' => null, 'OPEN' => 0, 'HIGH' => 0, 'LOW' => 0, 'CLOSE' => 0, 'VOL24H' => 0)				
+			)
 		),
 		'BOOK' => Array('BUY' => Array(), 'SELL' => Array()),
 		
@@ -835,6 +850,9 @@ function buildBook(){
 				'SELL'	=> Array('prc' => 0.05, 'min' => 0.01, 'max' => 5)
 			)
 		),
+		
+		//хеш последнего маркет-вью
+		'MVIEW_HASH' => null,
 		
 		//общая таблица ордеров 
 		'ORDERS' => Array()
@@ -874,7 +892,7 @@ function calcFee($sum = 0, $type = 'TRADER', $side = 'BUY', &$book){
 		return $fee['max']*1000000000;	
 }
 
-function printMarketView(&$book, &$reportsQueue){
+function printMarketView(&$book, &$reportsQueue, &$redis, $pair){
 	$x = $book['MARKET_VIEW'];
 	
 	if (!empty($x)){
@@ -908,8 +926,14 @@ function printMarketView(&$book, &$reportsQueue){
 		echo "\n";		
 	}
 	//echo "\n";
+	$ordersLen = $redis->llen('INDEXTRDADE_NEW_ORDERS_'.$pair);
+	
+	if (empty($ordersLen)) $ordersLen = 0;
+	
 	echo "Reports: " . count($reportsQueue) . "\n";
-	echo "Orders: " . count($book['ORDERS']) . "\n";
+	echo "Orders/book: " . count($book['ORDERS']) . "\n";
+	echo "Orders/queue: " . $ordersLen . "\n";
+	
 
 	return true;
 }
@@ -921,7 +945,7 @@ $reportsQueue = Array(); //массив репортов, которые нуж�
 $book = buildBook();
 $marketView = Array();
 
-$ssdb->hclear('INDEXTRDADE_LIVE_ORDERS_'.$pair);
+///test $ssdb->hclear('INDEXTRDADE_LIVE_ORDERS_'.$pair);
 //начальная загрузка данных 
 $res = $ssdb->hgetall('INDEXTRDADE_LIVE_ORDERS_'.$pair);
 
@@ -943,7 +967,7 @@ echo "Book snapshot restored: " . count($book['ORDERS']) . " orders\n";
 $сentrifugo = initCentrifugo();
 
 //таймер берет с очереди новую задачу и обрабатывает ее (добавление или удаление ордера или команда)
-$loop->addPeriodicTimer(0.1, function() use (&$redis, &$bookStatus, &$pair, &$ch, &$reportsQueue, &$book){
+$loop->addPeriodicTimer(0.5, function() use (&$redis, &$bookStatus, &$pair, &$ch, &$reportsQueue, &$book){
 	if ($bookStatus === 'freez') return;
 	
 	//нужно подписаться на парралельно два канала - с отменами и новыми ордерами 	
@@ -994,21 +1018,120 @@ $loop->addPeriodicTimer(1, function() use (&$book){
 */
 
 //фризим очередь, формируем бук 
-$loop->addPeriodicTimer(10, function() use (&$redis, &$сentrifugo, $pair, &$book, &$reportsQueue){
-	//return;
+$loop->addPeriodicTimer(1, function() use (&$redis, &$сentrifugo, $pair, &$book, &$reportsQueue){
+	$topBuy 	= getTopBook($book, 'BUY');
+	$topSell 	= getTopBook($book, 'SELL');
 	
-	//Todo: считать спред, лучший бид/аск, последнюю сделку, обьемы на покупку и продажу общие	
-	procMarketView($book, 10);
+	if (is_numeric($topBuy))
+		$topBuy = round( $topBuy / 1000000000, 6);
 	
-	$_data = json_encode( $book['MARKET_VIEW'] );
+	if (is_numeric($topSell))
+		$topSell = round( $topSell / 1000000000, 6);
 	
-	//обновляем в Redis-е
-	$redis->hset('INDEXTRDADE_MARKET_VIEW', $pair, $_data);
+	//сохраним текущую цену как предудщую уже 
+	$book['STAT']['PREV_PRICE'] = $book['STAT']['PRICE'];
 	
-	//отослать в паблик канал центрифуги 
-	$сentrifugo->publish('public:' . $pair, Array( 'message' => $_data ));
+	$book['STAT']['PRICE']['BUY'] = $topBuy;
+	$book['STAT']['PRICE']['SELL'] = $topSell;
 	
-	printMarketView($book, $reportsQueue); 
+	if (is_numeric($book['STAT']['PRICE']['BUY']) && is_numeric($book['STAT']['PRICE']['SELL'])){
+		$book['STAT']['PRICE']['MID'] = round( ($book['STAT']['PRICE']['BUY'] + $book['STAT']['PRICE']['SELL']) / 2, 6);
+	}
+	
+	if (is_numeric($book['STAT']['PRICE']['BUY']) && !is_numeric($book['STAT']['PRICE']['SELL'])){
+		$book['STAT']['PRICE']['MID'] = $book['STAT']['PRICE']['BUY'];
+	}
+	
+	if (!is_numeric($book['STAT']['PRICE']['BUY']) && is_numeric($book['STAT']['PRICE']['SELL'])){
+		$book['STAT']['PRICE']['MID'] = $book['STAT']['PRICE']['SELL'];
+	}
+	
+	if (is_numeric($book['STAT']['PREV_PRICE']['MID']) && !empty($book['STAT']['PREV_PRICE']['MID'])){
+		if ($book['STAT']['PRICE']['MID'] == $book['STAT']['PREV_PRICE']['MID']){
+			$book['STAT']['PRICE']['DIFF'] = 0;
+			$book['STAT']['PRICE']['DIFF_PRC'] = 0;
+		}
+		else {
+			$book['STAT']['PRICE']['DIFF'] = $book['STAT']['PRICE']['MID'] - $book['STAT']['PREV_PRICE']['MID'];
+			
+			$book['STAT']['PRICE']['DIFF_PRC'] = round((($book['STAT']['PRICE']['MID'] - $book['STAT']['PREV_PRICE']['MID']) / $book['STAT']['PREV_PRICE']['MID'])*100, 2);
+			
+//echo "\n" . $book['STAT']['PRICE']['MID'] . " - " . $book['STAT']['PREV_PRICE']['MID'] . " / " . $book['STAT']['PREV_PRICE']['MID'] . " * 100 \n\n\n";
+			
+//echo $book['STAT']['PRICE']['DIFF_PRC'] . "\n\n";
+
+		}
+	}
+	
+	//пока считаем OHLC по mid-price, потом переделать по сделкам 
+	$tod = date('d.m.Y');
+	
+	if ($book['STAT']['OHLC']['CURR']['DATE'] == null){
+		$book['STAT']['OHLC']['CURR']['DATE'] = $tod;
+		
+		$book['STAT']['OHLC']['CURR']['OPEN'] = $book['STAT']['PRICE']['MID'];
+		$book['STAT']['OHLC']['CURR']['HIGH'] = $book['STAT']['PRICE']['MID'];
+		$book['STAT']['OHLC']['CURR']['LOW'] = $book['STAT']['PRICE']['MID'];
+		$book['STAT']['OHLC']['CURR']['CLOSE'] = $book['STAT']['PRICE']['MID'];
+	}
+	else
+	if ($book['STAT']['OHLC']['CURR']['DATE'] == $tod){
+		if ($book['STAT']['PRICE']['MID'] > $book['STAT']['OHLC']['CURR']['HIGH'])
+			$book['STAT']['OHLC']['CURR']['HIGH'] = $book['STAT']['PRICE']['MID'];
+		
+		if ($book['STAT']['PRICE']['MID'] < $book['STAT']['OHLC']['CURR']['LOW'])
+			$book['STAT']['OHLC']['CURR']['LOW'] = $book['STAT']['PRICE']['MID'];
+	}
+	else
+	if ($book['STAT']['OHLC']['CURR']['DATE'] != $tod){
+		//смена дня 
+		$book['STAT']['OHLC']['PREV'] = $book['STAT']['OHLC']['CURR'];
+		
+		$book['STAT']['OHLC']['CURR']['DATE'] = $tod;
+		
+		$book['STAT']['OHLC']['CURR']['OPEN'] = $book['STAT']['PRICE']['MID'];
+		$book['STAT']['OHLC']['CURR']['HIGH'] = $book['STAT']['PRICE']['MID'];
+		$book['STAT']['OHLC']['CURR']['LOW'] = $book['STAT']['PRICE']['MID'];
+		$book['STAT']['OHLC']['CURR']['CLOSE'] = $book['STAT']['PRICE']['MID'];
+	}
+	
+
+	
+	//if ($book['STAT']['PRICE']['MID'] < $book['STAT']['PREV_PRICE']['MID'])
+	//	die('Fuuuuuuuuk');
+	procMarketView($book, 25);
+	
+	$marketData = $book['MARKET_VIEW'];
+	$marketStat = $book['STAT'];
+	
+	if (is_numeric($marketStat['BUY']['volume']) && !empty($marketStat['BUY']['volume'])){
+		$marketStat['BUY']['volume'] = round( $marketStat['BUY']['volume'] / 1000000000, 6);
+	}
+	
+	if (is_numeric($marketStat['SELL']['volume']) && !empty($marketStat['SELL']['volume'])){
+		$marketStat['SELL']['volume'] = round( $marketStat['SELL']['volume'] / 1000000000, 6);
+	}
+	
+	
+	$_data = json_encode( Array('book' => $marketData, 'stat' => $marketStat, 'symbol' => $pair) );
+	
+	if (!empty($_data)){	
+		
+		$dsign = md5( $_data );
+	
+		if ($book['MVIEW_HASH'] == $dsign){
+			//ничего не изменилось 
+			return;
+		}
+		
+		$book['MVIEW_HASH'] = $dsign;
+		
+		//обновляем в Redis-е
+		$redis->hset('INDEXTRDADE_MARKET_VIEW', $pair, $_data);
+		
+		//отослать в паблик канал центрифуги 
+		$сentrifugo->publish('public:' . $pair, Array( 'type' => 'mview', 'message' => $_data ));
+	}
 	return;
 });
 
@@ -1017,6 +1140,10 @@ $loop->addPeriodicTimer(1, function() use (&$ssdb, &$reportsQueue){
 	if (!empty($reportsQueue)){
 		procReports($ssdb, $reportsQueue);
 	}
+});
+
+$loop->addPeriodicTimer(5, function() use (&$redis, &$сentrifugo, $pair, &$book, &$reportsQueue){
+	printMarketView($book, $reportsQueue, $redis, $pair); 	
 });
 
 

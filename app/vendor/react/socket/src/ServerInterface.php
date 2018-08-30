@@ -49,44 +49,103 @@ use Evenement\EventEmitterInterface;
 interface ServerInterface extends EventEmitterInterface
 {
     /**
-     * Starts listening on the given address
+     * Returns the full address (URI) this server is currently listening on
      *
-     * This starts accepting new incoming connections on the given address.
-     * See also the `connection event` above for more details.
+     * ```php
+     * $address = $server->getAddress();
+     * echo 'Server listening on ' . $address . PHP_EOL;
+     * ```
      *
-     * By default, the server will listen on the localhost address and will not be
-     * reachable from the outside.
-     * You can change the host the socket is listening on through a second parameter
-     * provided to the listen method.
+     * If the address can not be determined or is unknown at this time (such as
+     * after the socket has been closed), it MAY return a `NULL` value instead.
      *
-     * This method MUST NOT be called more than once on the same instance.
+     * Otherwise, it will return the full address (URI) as a string value, such
+     * as `tcp://127.0.0.1:8080`, `tcp://[::1]:80` or `tls://127.0.0.1:443`.
+     * Note that individual URI components are application specific and depend
+     * on the underlying transport protocol.
      *
-     * @param int    $port port to listen on
-     * @param string $host optional host to listen on, defaults to localhost IP
-     * @return void
-     * @throws Exception if listening on this address fails (invalid or already in use etc.)
+     * If this is a TCP/IP based server and you only want the local port, you may
+     * use something like this:
+     *
+     * ```php
+     * $address = $server->getAddress();
+     * $port = parse_url($address, PHP_URL_PORT);
+     * echo 'Server listening on port ' . $port . PHP_EOL;
+     * ```
+     *
+     * @return ?string the full listening address (URI) or NULL if it is unknown (not applicable to this server socket or already closed)
      */
-    public function listen($port, $host = '127.0.0.1');
+    public function getAddress();
 
     /**
-     * Returns the port this server is currently listening on
+     * Pauses accepting new incoming connections.
      *
-     * This method MUST NOT be called before calling listen().
-     * This method MUST NOT be called after calling shutdown().
+     * Removes the socket resource from the EventLoop and thus stop accepting
+     * new connections. Note that the listening socket stays active and is not
+     * closed.
      *
-     * @return int the port number
+     * This means that new incoming connections will stay pending in the
+     * operating system backlog until its configurable backlog is filled.
+     * Once the backlog is filled, the operating system may reject further
+     * incoming connections until the backlog is drained again by resuming
+     * to accept new connections.
+     *
+     * Once the server is paused, no futher `connection` events SHOULD
+     * be emitted.
+     *
+     * ```php
+     * $server->pause();
+     *
+     * $server->on('connection', assertShouldNeverCalled());
+     * ```
+     *
+     * This method is advisory-only, though generally not recommended, the
+     * server MAY continue emitting `connection` events.
+     *
+     * Unless otherwise noted, a successfully opened server SHOULD NOT start
+     * in paused state.
+     *
+     * You can continue processing events by calling `resume()` again.
+     *
+     * Note that both methods can be called any number of times, in particular
+     * calling `pause()` more than once SHOULD NOT have any effect.
+     * Similarly, calling this after `close()` is a NO-OP.
+     *
+     * @see self::resume()
+     * @return void
      */
-    public function getPort();
+    public function pause();
+
+    /**
+     * Resumes accepting new incoming connections.
+     *
+     * Re-attach the socket resource to the EventLoop after a previous `pause()`.
+     *
+     * ```php
+     * $server->pause();
+     *
+     * $loop->addTimer(1.0, function () use ($server) {
+     *     $server->resume();
+     * });
+     * ```
+     *
+     * Note that both methods can be called any number of times, in particular
+     * calling `resume()` without a prior `pause()` SHOULD NOT have any effect.
+     * Similarly, calling this after `close()` is a NO-OP.
+     *
+     * @see self::pause()
+     * @return void
+     */
+    public function resume();
 
     /**
      * Shuts down this listening socket
      *
      * This will stop listening for new incoming connections on this socket.
      *
-     * This method MUST NOT be called before calling listen().
-     * This method MUST NOT be called after calling shutdown().
+     * Calling this method more than once on the same instance is a NO-OP.
      *
      * @return void
      */
-    public function shutdown();
+    public function close();
 }
