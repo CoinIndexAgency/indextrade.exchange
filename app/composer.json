@@ -11,6 +11,7 @@
         "zf1/zend-registry": "^1.12",
 		"monolog/monolog" : "*",
 		"rybakit/msgpack" : "*",
+		"guzzlehttp/guzzle" : "^6.3",
 		
 		"react/react": "dev-master",
 		"react/http" : "^0.8"

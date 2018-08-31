@@ -158,141 +158,24 @@
 											Volume
 										</div>
 									</div>
+									<div class="row" style="font-weight:bold;height:50% !important;">
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											<?php echo $q['cur']; ?>
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											<?php 
+												if ($q['type'] == 'FUT')
+													echo $q['contract'];
+												else
+													echo $q['ass'];
+											?>
+										</div>
+										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
+											<?php echo $q['cur']; ?>
+										</div>
+									</div>
 								<div class="idxtAssetBookBUY">	
-								<!--
-									<div class="row" style="font-weight:normal;height:50% !important;">
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:red;">
-											0.0171
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											234.22
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											4.0051
-										</div>
-									</div>
-									<div class="row" style="font-weight:normal;height:50% !important;">
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:red;">
-											0.0170
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											234.22
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											4.0051
-										</div>
-									</div>
-									<div class="row" style="font-weight:normal;height:50% !important;">
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:red;">
-											0.0169
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											234.22
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											4.0051
-										</div>
-									</div>
-									<div class="row" style="font-weight:normal;height:50% !important;">
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:red;">
-											0.0168
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											234.22
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											4.0051
-										</div>
-									</div>
-									<div class="row" style="font-weight:normal;height:50% !important;">
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:red;">
-											0.0167
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											234.22
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											4.0051
-										</div>
-									</div>
-									<div class="row" style="font-weight:normal;height:50% !important;">
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:red;">
-											0.0166
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											234.22
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											4.0051
-										</div>
-									</div>
-									<div class="row" style="font-weight:normal;height:50% !important;">
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:red;">
-											0.0165
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											234.22
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											4.0051
-										</div>
-									</div>
-									<div class="row" style="font-weight:normal;height:50% !important;">
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:red;">
-											0.0164
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											234.22
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											4.0051
-										</div>
-									</div>
-									<div class="row" style="font-weight:normal;height:50% !important;">
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:red;">
-											0.0163
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											234.22
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											4.0051
-										</div>
-									</div>
-									<div class="row" style="font-weight:normal;height:50% !important;">
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:red;">
-											0.0162
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											234.22
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											4.0051
-										</div>
-									</div>
-									<div class="row" style="font-weight:normal;height:50% !important;">
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:red;">
-											0.0161
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											234.22
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											4.0051
-										</div>
-									</div>
-									<div class="row" style="font-weight:normal;height:50% !important;">
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:red;">
-											0.0160
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											234.22
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											4.0051
-										</div>
-									</div>
-								-->
+								
 								</div>
 								
 									<!--- -->
@@ -307,151 +190,7 @@
 									</div>
 								
 								<div class="idxtAssetBookSELL">
-								<!--
-									<div class="row" style="font-weight:normal;height:50% !important;">
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:green;">
-											0.0159
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											234.22
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											4.0051
-										</div>
-									</div>
-									<div class="row" style="font-weight:normal;height:50% !important;">
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:green;">
-											0.0158
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											234.22
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											4.0051
-										</div>
-									</div>
-									<div class="row" style="font-weight:normal;height:50% !important;">
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:green;">
-											0.0157
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											234.22
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											4.0051
-										</div>
-									</div>
-									<div class="row" style="font-weight:normal;height:50% !important;">
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:green;">
-											0.0156
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											234.22
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											4.0051
-										</div>
-									</div>
-									<div class="row" style="font-weight:normal;height:50% !important;">
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:green;">
-											0.0155
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											234.22
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											4.0051
-										</div>
-									</div>
-									<div class="row" style="font-weight:normal;height:50% !important;">
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:green;">
-											0.0154
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											234.22
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											4.0051
-										</div>
-									</div>
-									<div class="row" style="font-weight:normal;height:50% !important;">
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:green;">
-											0.0153
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											234.22
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											4.0051
-										</div>
-									</div>
-									<div class="row" style="font-weight:normal;height:50% !important;">
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:green;">
-											0.0152
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											234.22
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											4.0051
-										</div>
-									</div>
-									<div class="row" style="font-weight:normal;height:50% !important;">
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:green;">
-											0.0151
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											234.22
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											4.0051
-										</div>
-									</div>
-									<div class="row" style="font-weight:normal;height:50% !important;">
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:green;">
-											0.0150
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											234.22
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											4.0051
-										</div>
-									</div>
-									<div class="row" style="font-weight:normal;height:50% !important;">
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:green;">
-											0.0149
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											234.22
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											4.0051
-										</div>
-									</div>
-									<div class="row" style="font-weight:normal;height:50% !important;">
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:green;">
-											0.0148
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											234.22
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											4.0051
-										</div>
-									</div>
-									<div class="row" style="font-weight:normal;height:50% !important;">
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:green;">
-											0.0147
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											234.22
-										</div>
-										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											4.0051
-										</div>
-									</div>
-								-->
+								
 								</div>
 								
                                 </div>
@@ -474,17 +213,13 @@
 										else
 											echo '<span style="color:black">'.$q['ass'].'</span>';
 										?>
+										&nbsp;&nbsp;for&nbsp;&nbsp;<?php echo $q['cur']; ?>
 									</h3>
                                 </div>
                                 <div class="panel-body">
                                     <div class="form-group idxtBuyForm" style="padding-top:15px !important;">
 										<div class="col-sm-12 col-lg-12" style="padding-right:0px !important; padding-left:0px !important;">
-											<div class="input-group m-b-sm">
-												<input type="text" type="number" class="form-control idxtPrice" placeholder="Price" aria-describedby="basic-addon1">
-												<span class="input-group-addon" id="basic-addon1" style="width:40%"><?php echo $q['cur']; ?></span>
-												
-											</div>
-											
+																						
 											<div class="input-group m-b-sm">
 												<input type="text" class="form-control idxtAmount" placeholder="Amount" aria-describedby="basic-addon1">
 												<span class="input-group-addon" id="basic-addon1" style="width:40%">
@@ -496,6 +231,12 @@
 														echo $q['ass'];
 												?>												
 												</span>
+											</div>
+											
+											<div class="input-group m-b-sm">
+												<input type="text" type="number" class="form-control idxtPrice" placeholder="Price" aria-describedby="basic-addon1">
+												<span class="input-group-addon" id="basic-addon1" style="width:40%"><?php echo $q['cur']; ?></span>
+												
 											</div>
 											
 											<div class="input-group m-b-sm" style="margin-bottom:2px !important;">
@@ -528,20 +269,16 @@
 										else
 											echo '<span style="color:black">' . $q['ass'] . '</span>';
 										?>
+										&nbsp;&nbsp;for&nbsp;&nbsp;<?php echo $q['cur']; ?>
 									</h3>
                                 </div>
                                 <div class="panel-body">
                                     
-									<div class="form-group" style="padding-top:15px !important;">
+									<div class="form-group idxtSellForm" style="padding-top:15px !important;">
 										<div class="col-sm-12 col-lg-12" style="padding-right:0px !important; padding-left:0px !important;">
-											<div class="input-group m-b-sm">
-												<input type="text" class="form-control" placeholder="Price" aria-describedby="basic-addon1">
-												<span class="input-group-addon" id="basic-addon1" style="width:40%"><?php echo $q['cur']; ?></span>
-												
-											</div>
 											
 											<div class="input-group m-b-sm">
-												<input type="text" class="form-control" placeholder="Amount" aria-describedby="basic-addon1">
+												<input type="text" class="form-control idxtAmount" placeholder="Amount" aria-describedby="basic-addon1">
 												<span class="input-group-addon" id="basic-addon1" style="width:40%">
 												
 												<?php 
@@ -553,17 +290,23 @@
 												</span>
 											</div>
 											
+											<div class="input-group m-b-sm">
+												<input type="text" class="form-control idxtPrice" placeholder="Price" aria-describedby="basic-addon1">
+												<span class="input-group-addon" id="basic-addon1" style="width:40%"><?php echo $q['cur']; ?></span>
+												
+											</div>
+											
 											<div class="input-group m-b-sm" style="margin-bottom:2px !important;">
-												<input type="text" class="form-control" placeholder="Total" aria-describedby="basic-addon1" readonly="">
+												<input type="text" class="form-control idxtTotal" placeholder="Total" aria-describedby="basic-addon1" readonly="">
 												<span class="input-group-addon" id="basic-addon1"><?php echo $q['cur']; ?></span>
 											</div>											
 											
 											<div class="input-group m-b-sm">
-											<p class="form-control-static">Transaction fee: 0.123 <?php echo $q['cur'];?></p>
+											<p class="form-control-static">Transaction fee: <span class="idxtTradeFee">0.123</span> <?php echo $q['cur'];?></p>
 											</div>
 											
 											<div class="input-group m-b-sm" style="text-align:center; width:100%;">
-												<button type="button" class="btn btn-danger" style="width:100%;">SELL</button>
+												<button type="button" class="btn btn-danger idxtSellBtn" style="width:100%;">SELL</button>
 											</div>
 										</div>
 									</div>
@@ -672,7 +415,7 @@
 								<div class="panel-heading">
                                     <h4 class="panel-title">My orders</h4>
 									<div class="panel-control">
-                                        <a href="javascript:void(0);" data-toggle="tooltip" data-placement="top" title="Full Execution Reports log" class=""><i class="icon-list"></i>&nbsp;</a>
+                                        <a href="javascript:void(0);" data-toggle="tooltip" data-placement="top" title="All my orders desk" class=""><i class="icon-list"></i>&nbsp;</a>
 										<!--
 										<a href="javascript:void(0);" data-toggle="tooltip" data-placement="top" title="View options" class=""><i class="icon-settings"></i>&nbsp;</a>
 										
@@ -686,16 +429,17 @@
                                            <thead>
                                                <tr>
                                                    <th>Date</th>
-                                                   <th>Asset</th>
+                                                   <!--<th>Asset</th>-->
                                                    <th>Type</th>
                                                    <th>Price</th>
-                                                   <th>Volume</th>
-												   <th>Amount</th>
+                                                   <th>Amount</th>
+												   <th>Total</th>
 												   <th>Act</th>
                                                </tr>
                                            </thead>
-                                           <tbody>
-                                               <tr>
+                                           <tbody class="idxtMyOrders">
+                                               <!--
+											   <tr>
                                                    <th scope="row" style="text-align:center;">12:30</th>
                                                    <td>EOS/USDT</td>
                                                    <td><span class="label label-success">BUY</span></td>
@@ -703,23 +447,10 @@
 												   <td>233.01</td>
 												   <td>3.7747</td>
                                                    <td>
-                                                       <!--<i class="fa fa-close" style="cursor:pointer;"></i>-->
-													   <a href="#" style="font-size:10px;">cancel</a>
+                                                       <a href="#" style="font-size:10px;">cancel</a>
                                                    </td>
                                                </tr>
-                                               <tr>
-                                                   <th scope="row" style="text-align:center;">12:30</th>
-                                                   <td>EOS/USDT</td>
-                                                   <td><span class="label label-success">BUY</span></td>
-                                                   <td>0.0162</td>
-												   <td>233.01</td>
-												   <td>3.7747</td>
-                                                   <td>
-                                                       <!--<i class="fa fa-close" style="cursor:pointer;"></i>-->
-													   <a href="#" style="font-size:10px;">cancel</a>
-                                                   </td>
-                                               </tr>
-                                              
+                                               -->
                                            </tbody>
                                         </table>
                                     </div>
@@ -842,6 +573,8 @@
 				var price = parseFloat( form.find('.idxtPrice').val() );
 				var amount = parseFloat( form.find('.idxtAmount').val() );
 				
+				if (!price || !amount) return;
+				
 				if (!fee)
 					fee = 0.2;
 				
@@ -928,7 +661,7 @@
 						if (_sellBook.length > 14)
 							_sellBook = _sellBook.slice(0, 13);
 							
-						//_sellBook.reverse();
+							_sellBook.reverse();
 						
 						var _str = '';
 							
@@ -974,8 +707,34 @@
 					
 			}
 			
+			idxt.renderUserLastOrders = function(data){
+				console.log('My orders');
+				console.info( data );
+				
+				var el = $('.idxtMyOrders'); 
+				var _str = '';
+				
+				_.each(data, function(o){
+					var dt = o.order_datetime.split(' ');
+					var t = '<tr><th scope="row" class="idxtMyOrderRow idxtOrder'+o.orderID+'" style="text-align:center;cursor:pointer;" title="'+o.order_datetime+'">'+dt[1]+'</th>' + 
+                                '<td><span class="label label-success">'+o.order_side+'</span></td>' + 
+                                '<td>'+o.order_price+'</td>' + 
+								'<td>'+o.order_amount+'</td>' + 
+								'<td>'+o.order_total+'</td>' + 
+                                '<td><a href="javascript: void idxt.cancelMyOrder(\''+o.orderID+'\');" style="font-size:10px;">cancel</a></td>' + 
+                            '</tr>';
+						_str = _str + t;
+				});
+				
+				el.empty().html( _str );				
+			}
 			
+			//запрос на отмену моего ордера 
+			idxt.cancelMyOrder = function(orderID){
+				console.log('Request cancelation of order: ' + orderID);
+			}
 			
+			                                       
 			
 			
 			//загружаем текущий маркет овервью 
@@ -985,6 +744,14 @@
 						idxt.renderMarketView( d.data );
 					}
 				});
+				
+				$.getJSON('/user/orders/last?symbol=' + curAsset.symbol + '&_' + new Date().getTime(), function(d){
+					if (d && !d.error && d.data){
+						idxt.renderUserLastOrders( d.data );
+					}
+				});
+				
+				
 			} 
 		   
 		</script>

@@ -93,15 +93,14 @@ $app->post('/orders/new', function (Request $request, Response $response, array 
 			'body'	=> $order
 		);
 		
+		$redis = $this->get('redis');
+		$redis->rpush( 'INDEXTRDADE_NEW_ORDERS_CH0',  json_encode($command));
+		
 		//отправим репорт, что приняли 
 		$ssdb = $this->get('ssdb');
 		$report = Array('type' => 'PROPOSED', 'msg' => 'Order sended to API front-end', 'orderID' => $order['id'], 'raw' => $order, 'ts' => t());
 		$ssdb->qpush_back('INDEXTRDADE_EXECUTION_REPORTS', json_encode($report));
-		
-		
-		$redis = $this->get('redis');
-		$redis->rpush( 'INDEXTRDADE_NEW_ORDERS_CH0',  json_encode($command));
-		
+				
 		return $response->withJson(Array('status' => 'OK', 'error' => null, 'data' => Array('orderID' => $order['id'])), 200);
 	}
 	else {
@@ -141,6 +140,43 @@ $app->get('/market/overview', function (Request $request, Response $response, ar
 	else
 		return $response->withJson(Array('status' => 'ERROR', 'error' => 'Invalid market overview', 'data' => null), 200);
 });
+
+//получить список последних активных ордеров юзера 
+$app->get('/user/orders/last', function (Request $request, Response $response, array $args) {
+    $symbol = $request->getQueryParam('symbol', null);
+	
+	if (empty($symbol)){
+		return $response->withJson(Array('status' => 'ERROR', 'error' => 'Invalid symbol', 'data' => null), 200);
+	}
+	
+	$symbol = strtoupper( $symbol );
+	$limit = 10;
+	$db = $this->get('db');
+	
+	$p_id = $db->fetchOne('SELECT _id FROM exchange_pairs_tbl WHERE pair_name = "'.$symbol.'" LIMIT 1');
+	$uid = 1;
+	
+	$res = $db->fetchAll('SELECT order_uuid AS orderID, order_type, order_side, order_exec, order_datetime, order_price, order_amount, order_fee, order_status, order_is_partial_filled FROM exchange_real_orders_tbl WHERE order_uid = ? AND order_status = "live" AND order_pair_id = ? ORDER BY order_datetime DESC LIMIT ' . $limit, Array($uid, $p_id));
+	
+	$orders = Array();
+	
+	foreach($res as $x){
+		$x['order_price'] = round( $x['order_price'] / 1000000000, 6 );
+		$x['order_amount'] = round( $x['order_amount'] / 1000000000, 6 );
+		$x['order_fee'] = round( $x['order_fee'] / 1000000000, 6 );
+		
+		$x['order_total'] = round( $x['order_price'] * $x['order_amount'], 6 );
+		
+		$orders[] = $x;
+	}
+	
+	if (!empty($orders)){
+		return $response->withJson(Array('status' => 'OK', 'error' => null, 'data' => $orders), 200);
+	}
+	else
+		return $response->withJson(Array('status' => 'ERROR', 'error' => 'Error while orders fetch', 'data' => null), 200);
+});
+
 
 
 $app->run();

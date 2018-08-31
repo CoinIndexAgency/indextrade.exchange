@@ -5,15 +5,12 @@ error_reporting(E_ALL);
 date_default_timezone_set('UTC');
 clearstatcache(true);
 
+include_once( __DIR__ . '/__bootstrap.php');
 
 use Psr\Http\Message\ServerRequestInterface;
 use React\Http\Response;
 use React\Http\Server;
 
-
-
-
-include_once( __DIR__ . '/__bootstrap.php');
 
 echo "\n\n";
 echo "     ---| IndexTrade.Exchange Platform via CoinIndex Team with LOVE |--- \n\n";
@@ -22,47 +19,6 @@ echo "Starting Allocator Master...\n\n";
 
 $log = initLog('idxtAllocator');
 $сentrifugo = initCentrifugo();
-
-
-/***
-
-$socket = new \React\Socket\Server($loop, 
-				Array(
-					'tcp' => Array(
-						'backlog' => 256,
-						'so_reuseport' => true,
-						'ipv6_v6only' => false
-					)
-				)
-			);
-
-$server = new \React\Http\Server($socket);
-
-$server->on('request', function (\React\Http\Request $request, \React\Http\Response $response) {
-    $path = $request->getPath();
-	
-	echo "Request path: " . $path . "\n";
-	
-	$redis = initRedis();
-	$info = $redis->info();
-	
-	var_dump( $redis->info() );
-	
-	
-	$response->writeHead(200, array('Content-Type' => 'application/json'));
-    
-	//throw new \Exception('fuck');
-	
-	
-	$response->end( json_encode( $info ) );
-});
-
-$server->on('error', function (\Exception $e) {
-    echo 'Error: ' . $e->getMessage() . PHP_EOL;
-});
-		
-$socket->listen(8099, '127.0.0.1');
-***/
 
 
 $server = new Server(function (ServerRequestInterface $request) use (&$log, &$сentrifugo, &$db, &$redis, &$ssdb) {
@@ -88,12 +44,19 @@ $server = new Server(function (ServerRequestInterface $request) use (&$log, &$с
 			
 		}
 		
+		//$db = initDb();
+		//$db->getConnection();		
+		$db->beginTransaction();
+		
 		//теперь проверить баланс юзера 
 		$userFreeBalance = $db->fetchOne('SELECT currency_balance FROM exchange_users_balances_tbl 
 			WHERE 	uid = ? AND currency_symbol = ? AND balance_status = "full_operated" LIMIT 1', 
 			Array(intval($params['uid']), strval($params['symbol'])));
 		
 		if (empty($userFreeBalance)){
+			
+			$db->commit();
+			
 			return new Response(200, Array('Content-Type' => 'application/json'), json_encode(Array('status' => 'ERROR', 'error' => 'Empty user balance', 'data' => null)));
 		}
 		
@@ -101,33 +64,84 @@ $server = new Server(function (ServerRequestInterface $request) use (&$log, &$с
 		$userFreeBalance = floatval($userFreeBalance);
 		
 		if ($userFreeBalance < floatval($params['amount'])){
+			
+			$db->commit();
+			
 			return new Response(200, Array('Content-Type' => 'application/json'), json_encode(Array('status' => 'ERROR', 'error' => 'Too low funds on the balance of the user', 'data' => null)));
 		}
 		else {
 			
 			$db->query('UPDATE exchange_users_balances_tbl SET amount_at_orders = amount_at_orders + '.floatval($params['amount']).', currency_balance = currency_balance - '.floatval($params['amount']).', last_balance_update = NOW() WHERE uid = ? AND currency_symbol = ? AND balance_status = "full_operated" ', Array(intval($params['uid']), strval($params['symbol'])));
 			
-			$userBalanceLast = $db->fetchRow('SELECT currency_balance, amount_at_orders, amount_at_guarantee, last_balance_update FROM exchange_users_balances_tbl 
+			//специальный лог аллокаций и рефандов, должен сходиться для аудита потом
+			$db->query('INSERT INTO exchange_users_funds_allocations_tbl SET uid = ?, symbol = ?, amount = ?, action = ?, order_id = ?, updated_at = UNIX_TIMESTAMP()', Array(
+				intval($params['uid']),
+				strval($params['symbol']),
+				floatval($params['amount']),
+				'ALLOCATE',
+				$params['orderID']
+			));
+			
+			$userBalanceLast = $db->fetchRow('SELECT currency_symbol, currency_balance, amount_at_orders, amount_at_guarantee, last_balance_update FROM exchange_users_balances_tbl 
 			WHERE 	uid = ? AND currency_symbol = ? AND balance_status = "full_operated" LIMIT 1', 
 			Array(intval($params['uid']), strval($params['symbol'])));
 			
+			//обновляем балансы
+			$allBalances = $db->fetchAll('SELECT * FROM exchange_users_balances_tbl WHERE uid = ? ', Array(intval($params['uid'])));
+			
+			$redis->hset('INDEXTRADE_USERS_BALANCES', 'idxt' . intval($params['uid']),  json_encode($allBalances));
+			
+			//екзекьюшин репорт об аллокации 
+			$report = Array('type' => 'ALLOCATE', 'msg' => 'Funds '.$params['symbol'].' allocated by amount ' . $params['amount'], 'orderID' => $params['orderID'], 'ts' => t());
 			
 			
-			return new Response(200, Array('Content-Type' => 'application/json'), json_encode(Array('status' => 'OK', 'error' => null, 'data' => $userBalanceLast)));
+			try{ 
+				$tmp = json_encode($report); 
+				
+				if (empty($tmp) || !empty(json_last_error())){
+					$log->error( json_last_error_msg() );
+					
+					$db->rollBack();
+					
+					return new Response(200, Array('Content-Type' => 'application/json'), json_encode(Array('status' => 'ERROR', 'error' => json_last_error_msg(), 'data' => null)));
+				}
+				
+				$ssdb->qpush_back('INDEXTRDADE_EXECUTION_REPORTS', $tmp);
+				
+				$db->commit();
+				
+				$userBalanceLast['lastAllocate'] = $params['amount'];
+				
+				return new Response(200, Array('Content-Type' => 'application/json'), json_encode(Array('status' => 'OK', 'error' => null, 'data' => $userBalanceLast)));
+			
+			}catch(\Exception $e){
+				$log->error( $e );
+				
+				$db->rollBack();
+				
+				return new Response(200, Array('Content-Type' => 'application/json'), json_encode(Array('status' => 'ERROR', 'error' => $e->getMessage(), 'data' => null)));
+			}
 		}
+				
+		$db->rollBack();
 		
-		
-		
-		
-		
+		return new Response(200, Array('Content-Type' => 'application/json'), json_encode(Array('status' => 'ERROR', 'error' => 'Something gone wrong', 'data' => null)));
 		
 	}
 	else
 	if ($path == '/allocator/refund'){
 		//Возврат средств 
 	}
+	else
+	if ($path == '/allocator/time'){
+		return new Response(200, Array('Content-Type' => 'application/json'), json_encode(Array('status' => 'OK', 'error' => null, 'data' => t())));
+	}
+	else
+	if ($path == '/allocator/health'){
+		return new Response(200, Array('Content-Type' => 'application/json'), json_encode(Array('status' => 'OK', 'error' => null, 'data' => 'OK')));
+	}
 	else {
-		return new Response(200, Array('Content-Type' => 'application/json'), json_encode(Array('status' => 'ERROR', 'error' => 'Unknown Allocator mathod', 'data' => null)));		
+		return new Response(200, Array('Content-Type' => 'application/json'), json_encode(Array('status' => 'ERROR', 'error' => 'Unknown Allocator method', 'data' => null)));		
 	}
 	
 
@@ -165,6 +179,26 @@ $log->info('/allocator/refund - refund asset or currency by order (in responce t
 //в будущем может сюда добавить и другой функционал - депозиты и маржинальность
 
 echo "\n\n";
+
+
+$loop->addPeriodicTimer(3, function() use (&$db, &$log){
+	
+	if (!$db->isConnected()){
+		$log->warning("DB connection not alive. Try to reconnect");
+		
+		$db->getConnection();
+	}
+	
+	$dbTs = intval( $db->fetchOne('SELECT UNIX_TIMESTAMP() ') );
+	$appTs = intval( time() );
+		
+	if ($appTs != $dbTs){
+		$log->warning("DB local time and Application time has difference - " . ($appTs - $dbTs));
+	}
+	else
+		$log->info('Time  app and DB sinked OK');
+
+});
 
 $loop->run();
 

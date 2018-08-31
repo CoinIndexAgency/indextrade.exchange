@@ -203,6 +203,8 @@ function checkLimits($db = null, $order = null){
 	if ($price > $fairPriceMax)
 		return 'Order price bigger then fairPriceMax ('.$fairPriceMax.')';
 **/	
+	
+	/** вынесено в сервис Allocator
 	$checkUserBalanceSymbol = '';
 	
 	if ($order['side'] == 'SELL')
@@ -218,6 +220,7 @@ function checkLimits($db = null, $order = null){
 	
 	if ($balance < $amount)
 		return 'Amount too much (as user balance)';
+	**/
 	
 	//ну, базово вроде ОК
 	return true;	
@@ -348,8 +351,14 @@ $runtimeStats = Array(
 
 $redis->del('INDEXTRDADE_NEW_ORDERS_CH0');
 
+$httpClient = new \GuzzleHttp\Client([
+	'base_uri' => 'http://localhost:8099',
+	'exceptions' => false, 
+	'allow_redirects' => true, 'connect_timeout' => 3, 'decode_content' => true, 'force_ip_resolve' => 'v4', 'http_errors' => true, 'read_timeout' => 3, 'synchronous' => true, 'timeout' => 3
+]);
 
-$loop->addPeriodicTimer(0.25, function() use (&$db, &$redis, &$ssdb, &$log, &$runtimeStats){
+
+$loop->addPeriodicTimer(0.25, function() use (&$db, &$redis, &$ssdb, &$log, &$runtimeStats, &$httpClient){
 	//пробуем получить один элемент
 	$tmp = $redis->lpop('INDEXTRDADE_NEW_ORDERS_CH0'); //'INDEXTRDADE_ACCEPTED_ORDERS');
 	
@@ -378,6 +387,13 @@ $loop->addPeriodicTimer(0.25, function() use (&$db, &$redis, &$ssdb, &$log, &$ru
 		}
 		
 		$order = $orderPacket['body'];
+		
+		if (!$db->isConnected()){
+			$log->warning("DB connection not alive. Try to reconnect");
+			
+			$db->getConnection();
+		}
+		
 		
 		//DEBUG 
 		$order['uid'] = 1;
@@ -482,6 +498,55 @@ $loop->addPeriodicTimer(0.25, function() use (&$db, &$redis, &$ssdb, &$log, &$ru
 		$report = Array('type' => 'CHECK', 'msg' => 'Limits checking', 'orderID' => $order['id'], 'ts' => t());
 		sendExecutionReport($ssdb, $report, $log);
 		
+		$z = $db->fetchRow('SELECT pair_asset, pair_currency FROM exchange_pairs_tbl WHERE pair_name = "'.$order['pair'].'" LIMIT 1');
+		
+		$_symbol = $z['pair_currency'];
+		
+		if ($order['side'] == 'SELL')	
+			$_symbol = $z['pair_asset'];
+		
+		
+		//3.1 Аллоцируем средства (в синхронном режиме)
+		$httpres = $httpClient->get('/allocator/allocate?_='. t() . '&uid=1&orderID='.$order['id'].'&symbol='.$_symbol.'&amount='.floatval( $order['amount'] ));
+		
+		if ($httpres->getStatusCode() == 200){
+			
+			$jres = $httpres->getBody()->getContents();
+			
+			var_dump( $jres );
+			
+			if (is_string($jres)){
+				$jres = json_decode($jres, true);
+			}
+			
+			if ($jres['status'] != 'OK'){
+				
+				$log->error( $order['id'] . ' | ' . round( (microtime(true) - $t0)*1000, 3) . " :: Funds allocation error: " . $jres['error']);
+				
+				$report = Array('type' => 'REJECT', 'msg' => 'Funds allocation error: ' . $jres['error'], 'orderID' => $order['id'], 'ts' => t());
+			
+				sendExecutionReport($ssdb, $report, $log);
+
+				return;
+			}else {
+				
+				$log->info( $order['id'] . ' | ' . round( (microtime(true) - $t0)*1000, 3) . " :: Funds allocated: " . $jres['data']['lastAllocate'] .  ' ' . $jres['data']['currency_symbol'] . " :: Total allocated by user: ". $jres['data']['amount_at_orders']);
+							
+			}			
+			
+		} else {
+			$log->error( $order['id'] . ' | ' . round( (microtime(true) - $t0)*1000, 3) . " :: Network error while funds allocate");
+			
+			$report = Array('type' => 'REJECT', 'msg' => 'Network error while funds allocate', 'orderID' => $order['id'], 'ts' => t());
+			
+			sendExecutionReport($ssdb, $report, $log);
+
+			return;	
+		}	
+
+		
+		
+		
 		
 		//3.1 Вычисляем комиссии
 		$orderFee = calcOrderFee($db, $order);
@@ -541,12 +606,27 @@ $loop->addPeriodicTimer(0.25, function() use (&$db, &$redis, &$ssdb, &$log, &$ru
 });
 
 
-$loop->addPeriodicTimer(5, function() use (&$redis, &$log, &$runtimeStats){
+$loop->addPeriodicTimer(5, function() use (&$db, &$log, &$redis){
 	$tmp = $redis->llen('INDEXTRDADE_NEW_ORDERS_CH0');
 	
 	$log->info("New orders queue length: " . $tmp);	
+	
+	
+	if (!$db->isConnected()){
+		$log->warning("DB connection not alive. Try to reconnect");
+		
+		$db->getConnection();
+	}
+	
+	$dbTs = intval( $db->fetchOne('SELECT UNIX_TIMESTAMP() ') );
+	$appTs = intval( time() );
+		
+	if ($appTs != $dbTs){
+		$log->warning("DB local time and Application time has difference - " . ($appTs - $dbTs));
+	}
+	else
+		$log->info('Time  app and DB sinked OK');
 });
-
 
 
 $log->info('Main loop are starting...');

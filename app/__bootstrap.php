@@ -48,6 +48,11 @@ $сentrifugo 	= null;
 					'options' => $options			
 			));
 			
+			$conn = $db->getConnection();
+			
+			mysqli_options($conn, MYSQLI_OPT_CONNECT_TIMEOUT, 7 * 24 * 3600);
+			
+			
 			return $db;
 		}
 		catch (Exception $e)
@@ -68,7 +73,7 @@ $сentrifugo 	= null;
 	}
 	
 	function initSSDB(){
-		$ssdb = new \SimpleSSDB('localhost', 8888, 5000);	//192.241.194.55   sf3-ssdb.agpsource.com
+		$ssdb = new \SimpleSSDB('localhost', 8888, 60000);	//192.241.194.55   sf3-ssdb.agpsource.com
 		
 		return $ssdb;
 	}
@@ -94,5 +99,14 @@ $сentrifugo 	= null;
 $db 	= initDb();
 $redis 	= initRedis(); 
 $ssdb 	= initSSDB();  
+
+//сразу инициализируем 
+$db->getConnection();
+
+function checkExecutionReportsBeforeShutdown(&$ssdb){
+	if (!$ssdb) return false;
+	
+}
+
 
 $loop = \React\EventLoop\Factory::create();

@@ -910,13 +910,13 @@ function printMarketView(&$book, &$reportsQueue, &$redis, $pair){
 			//var_dump( $b ); 
 			//var_dump( $s );
 			
-			if (!empty($b)) echo str_pad($b[1] . ' : ' . str_pad($b[0], 5, '0',STR_PAD_RIGHT),  13, ' ', STR_PAD_LEFT);
+			if (!empty($b)) echo str_pad($b[1] . ' : ' . str_pad($b[0], 0, '0',STR_PAD_RIGHT),  13, ' ', STR_PAD_LEFT);
 			else 
 				echo str_pad(' ', 13, ' ', STR_PAD_LEFT);
 			
 			echo "|";
 			
-			if (!empty($s)) echo str_pad(str_pad($s[0],5, '0',STR_PAD_RIGHT) . ' : ' . $s[1], 13, ' ', STR_PAD_RIGHT);
+			if (!empty($s)) echo str_pad(str_pad($s[0], 0, '0',STR_PAD_RIGHT) . ' : ' . $s[1], 13, ' ', STR_PAD_RIGHT);
 			else 
 				echo str_pad(' ', 13, ' ', STR_PAD_RIGHT);
 			
@@ -945,7 +945,7 @@ $reportsQueue = Array(); //массив репортов, которые нуж�
 $book = buildBook();
 $marketView = Array();
 
-///test $ssdb->hclear('INDEXTRDADE_LIVE_ORDERS_'.$pair);
+//$ssdb->hclear('INDEXTRDADE_LIVE_ORDERS_'.$pair);
 //начальная загрузка данных 
 $res = $ssdb->hgetall('INDEXTRDADE_LIVE_ORDERS_'.$pair);
 

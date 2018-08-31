@@ -14,8 +14,8 @@ return array(
     'RingCentral\\Psr7\\' => array($vendorDir . '/ringcentral/psr7/src'),
     'React\\Stream\\' => array($vendorDir . '/react/stream/src'),
     'React\\Socket\\' => array($vendorDir . '/react/socket/src'),
-    'React\\SocketClient\\' => array($vendorDir . '/react/socket-client/src'),
     'React\\Promise\\Timer\\' => array($vendorDir . '/react/promise-timer/src'),
+    'React\\Promise\\Stream\\' => array($vendorDir . '/react/promise-stream/src'),
     'React\\Promise\\' => array($vendorDir . '/react/promise/src'),
     'React\\Http\\' => array($vendorDir . '/react/http/src'),
     'React\\HttpClient\\' => array($vendorDir . '/react/http-client/src'),
@@ -35,6 +35,8 @@ return array(
     'MessagePack\\' => array($vendorDir . '/rybakit/msgpack/src'),
     'Interop\\Container\\' => array($vendorDir . '/container-interop/container-interop/src/Interop/Container'),
     'GuzzleHttp\\Psr7\\' => array($vendorDir . '/guzzlehttp/psr7/src'),
+    'GuzzleHttp\\Promise\\' => array($vendorDir . '/guzzlehttp/promises/src'),
+    'GuzzleHttp\\' => array($vendorDir . '/guzzlehttp/guzzle/src'),
     'FastRoute\\' => array($vendorDir . '/nikic/fast-route/src'),
     'Centrifugo\\' => array($vendorDir . '/oleh-ozimok/php-centrifugo/src/Centrifugo'),
 );
