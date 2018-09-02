@@ -75,16 +75,19 @@ function checkUser($db = null, $order = null){
 }
 
 //проверка валидности что можно отменить ордер 
-function checkOrderValidity($db = null, $order = null){
+function checkOrderValidity($db = null, $order = null, $log = null){
 	if (empty($order)) return 'Empty order';
 	
-	$res = $db->fetchOne('SELECT order_id, order_uuid, order_pair_id, order_uid, order_price, order_amount, order_cancel_at, 	order_status FROM exchange_real_orders_tbl WHERE order_uuid = "'.$order['id'].'" LIMIT 1');
+	$res = $db->fetchRow('SELECT order_id, order_uuid, order_pair_id, order_uid, order_price, order_amount, order_cancel_at, order_status FROM exchange_real_orders_tbl WHERE order_uuid = "'.$order['id'].'" LIMIT 1');
 	
 	if (empty($res))
 		return 'Invalid order';
 	
-	if ($res['order_uuid'] != $order['id'])
-		return 'Invalid order id';
+	$log->debug( 'Fetchet from DB: ' . json_encode($res) );
+	$log->debug( 'Fetchet from AP: ' . json_encode($order) );
+	
+	//if ($res['order_uuid'] != $order['id'])
+	//	return 'Invalid order id';
 	
 	$pairId = $db->fetchOne('SELECT _id FROM exchange_pairs_tbl WHERE pair_name = "'.$order['pair'].'" LIMIT 1');
 	
@@ -94,14 +97,15 @@ function checkOrderValidity($db = null, $order = null){
 	if ($res['order_pair_id'] != $pairId)
 		return 'Invalid pair id';
 	
-	if ($res['order_uid'] != $order['uid'])
-		return 'Invalid order uid';
+	//for TEST NOW
+	//if ($res['order_uid'] != $order['uid'])
+	//	return 'Invalid order uid';
 	
 	if ($res['order_price'] != $order['price'])
 		return 'Invalid order price';
-	
-	if ($res['order_amount'] != $order['amount'])
-		return 'Invalid order amount';
+
+	//if ($res['order_amount'] != $order['amount'])
+	//	return 'Invalid order amount';
 	
 	if ($res['order_cancel_at'] < time()){
 		//это что ордер должен быть снят раньше 
@@ -116,7 +120,7 @@ function checkOrderValidity($db = null, $order = null){
 }
 
 //отмена ордера 
-function cancelOrder($db = null, $redis = null, $order = null){
+function cancelOrder($db = null, $redis = null, $ssdb = null, $order = null){
 	$db->beginTransaction();
 		$t = time();
 		
@@ -285,7 +289,7 @@ function addToGlobalOrderList($db, $redis, $ssdb, $order, $fee){
 				order_stoploss_value	= ?,
 				order_cancel_at	= ?,
 				order_status	= ?,
-				order_is_partial_filled	= ?,
+				order_partial_filled	= ?,
 				order_market_verification_flag	= ?,
 				order_last_status_changed_at	= ?  ';
 	
@@ -433,7 +437,7 @@ $loop->addPeriodicTimer(0.25, function() use (&$db, &$redis, &$ssdb, &$log, &$ru
 		
 		//если это отмена ордера, то проверить валидность
 		if ($orderPacket['act'] == 'REM'){
-			$orderValidation = checkOrderValidity($db, $order);
+			$orderValidation = checkOrderValidity($db, $order, $log);
 			
 			if ($orderValidation !== true){
 				$log->error( $order['id'] . ' | ' . round( (microtime(true) - $t0)*1000, 3) . " :: Order validity checking FAIL. Reason: " . $orderValidation);
@@ -445,16 +449,17 @@ $loop->addPeriodicTimer(0.25, function() use (&$db, &$redis, &$ssdb, &$log, &$ru
 				return;
 			}
 			else {
-				$result = cancelOrder($db, $order);
+				$result = cancelOrder($db, $redis, $ssdb, $order);
 				
 				if ($result === true){
 					$report = Array('type' => 'CANCEL', 'msg' => 'Order canceled by user', 'orderID' => $order['id'], 'ts' => t());
 					
 					sendExecutionReport($ssdb, $report, $log);
+					
+					$log->info( $order['id'] . ' | ' . round( (microtime(true) - $t0)*1000, 3) . " :: User cancel order OK" );
 				}
 				
-				$log->info( $order['id'] . ' | ' . round( (microtime(true) - $t0)*1000, 3) . " :: User cancel order OK" );
-				
+								
 				return;
 			}
 		}
@@ -505,7 +510,7 @@ $loop->addPeriodicTimer(0.25, function() use (&$db, &$redis, &$ssdb, &$log, &$ru
 		if ($order['side'] == 'SELL')	
 			$_symbol = $z['pair_asset'];
 		
-		
+	try {	
 		//3.1 Аллоцируем средства (в синхронном режиме)
 		$httpres = $httpClient->get('/allocator/allocate?_='. t() . '&uid=1&orderID='.$order['id'].'&symbol='.$_symbol.'&amount='.floatval( $order['amount'] ));
 		
@@ -544,7 +549,17 @@ $loop->addPeriodicTimer(0.25, function() use (&$db, &$redis, &$ssdb, &$log, &$ru
 			return;	
 		}	
 
+	}catch(\Exception $e){
 		
+		$log->error('Error with connection to Allocate server: ' . $e->getMessage());
+		
+		$report = Array('type' => 'REJECT', 'msg' => 'Cant funds allocate, system error', 'orderID' => $order['id'], 'ts' => t());
+			
+		sendExecutionReport($ssdb, $report, $log);
+			
+		return;
+		
+	}	
 		
 		
 		
@@ -609,7 +624,8 @@ $loop->addPeriodicTimer(0.25, function() use (&$db, &$redis, &$ssdb, &$log, &$ru
 $loop->addPeriodicTimer(5, function() use (&$db, &$log, &$redis){
 	$tmp = $redis->llen('INDEXTRDADE_NEW_ORDERS_CH0');
 	
-	$log->info("New orders queue length: " . $tmp);	
+	if (!empty($tmp))
+		$log->info("New orders queue length: " . $tmp);	
 	
 	
 	if (!$db->isConnected()){
@@ -624,8 +640,8 @@ $loop->addPeriodicTimer(5, function() use (&$db, &$log, &$redis){
 	if ($appTs != $dbTs){
 		$log->warning("DB local time and Application time has difference - " . ($appTs - $dbTs));
 	}
-	else
-		$log->info('Time  app and DB sinked OK');
+	//else
+	//	$log->info('Time  app and DB sinked OK');
 });
 
 

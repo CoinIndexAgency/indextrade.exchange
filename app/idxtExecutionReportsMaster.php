@@ -27,6 +27,7 @@ $сentrifugo = initCentrifugo();
 
 $mainTimer = 0.01;
 $doSilent = false; //не оповещать центрифугу
+$pair = 'XXX/USDT';
 
 if (count($argv) > 1){
 	$_argv = array_flip($argv);
@@ -66,7 +67,7 @@ if (count($argv) > 1){
 
 
 //Главный цикл обработки событий 
-$loop->addPeriodicTimer(0.20, function() use (&$db, &$redis, &$ssdb, &$log, &$o2uid, &$сentrifugo){
+$loop->addPeriodicTimer(0.20, function() use (&$db, &$redis, &$ssdb, &$log, &$pair, &$o2uid, &$сentrifugo){
 	$_res = $ssdb->qpop_front('INDEXTRDADE_EXECUTION_REPORTS', 1);
 	
 	if ($_res == null) return;
@@ -136,10 +137,13 @@ $loop->addPeriodicTimer(0.20, function() use (&$db, &$redis, &$ssdb, &$log, &$o2
 				//ордер не прошел проверки 
 				case 'REJECT' : {
 					$db->query('UPDATE exchange_real_orders_tbl SET order_status = "reject", order_last_status_changed_at = UNIX_TIMESTAMP(), order_cancel_at = UNIX_TIMESTAMP() WHERE order_uuid = "'.$res['orderID'].'" LIMIT 1');
+				
+					//удалить в очереди
+					$ssdb->hdel('INDEXTRDADE_LIVE_ORDERS_'.$pair, $res['orderID']);
 				}
 				//отмена ордера 
 				case 'CANCEL' : {
-					//он отменяеться уже в OrdersMaster
+					
 				}
 				//ордер добавлен в бук 
 				case 'SAVED' : {
@@ -156,6 +160,25 @@ $loop->addPeriodicTimer(0.20, function() use (&$db, &$redis, &$ssdb, &$log, &$o2
 				//базово ордер принят и зарегистрирован
 				case 'PROPOSED' : {
 					
+				}
+				case 'FILL' : {
+					//полностью заполнен ордер встречной заявкой
+					
+				}
+				case 'PFILL' : {
+					//ордер частично исполнен
+					//и нужно изменить его 
+					//$log->debug( $_res );
+					if (!empty($_raw['volume'])){					
+						$db->query('UPDATE exchange_real_orders_tbl SET order_status = "pfilled", order_partial_filled = order_partial_filled + '.$_raw['volume'].', order_last_status_changed_at = UNIX_TIMESTAMP(), order_cancel_at = 0 WHERE order_uuid = "'.$res['orderID'].'" LIMIT 1');
+					}
+				}
+				//ордер полностью исполнен
+				case 'CLOSE' : {
+					$db->query('UPDATE exchange_real_orders_tbl SET order_status = "closed", order_last_status_changed_at = UNIX_TIMESTAMP(), order_cancel_at = 0 WHERE order_uuid = "'.$res['orderID'].'" LIMIT 1');
+					
+					//удалить в очереди
+					$ssdb->hdel('INDEXTRDADE_LIVE_ORDERS_'.$pair, $res['orderID']);
 				}
 				//другие типы репортов
 				default: {

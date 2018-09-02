@@ -551,6 +551,12 @@
 					
 					if (d && d.data && d.data.orderID){
 						console.log('Order Accepted! ID: ' + d.data.orderID);
+						
+						$.getJSON('/user/orders/last?symbol=' + curAsset.symbol + '&_' + new Date().getTime(), function(d){
+							if (d && !d.error && d.data){
+								idxt.renderUserLastOrders( d.data );
+							}
+						});
 					}
 					
 					el.removeClass('disabled');					
@@ -732,6 +738,22 @@
 			//запрос на отмену моего ордера 
 			idxt.cancelMyOrder = function(orderID){
 				console.log('Request cancelation of order: ' + orderID);
+				
+				$.post('/orders/cancel', {orderID: orderID, pair:curAsset.symbol}, function(d, status, dType){
+					console.log( [d, status, dType]  );
+					
+					if (d && d.data && d.data.orderID){
+						console.log('Order cancelation accepted! ID: ' + d.data.orderID);
+						
+						var el = $('.idxtMyOrders'); 
+							el.find('.idxtOrder' + d.data.orderID).parent().remove();
+					}
+					else
+					if (d && d.error && d.status && d.status == 'ERROR'){
+						console.log('ERROR:' + d.error);
+					}						
+				});	
+				
 			}
 			
 			                                       

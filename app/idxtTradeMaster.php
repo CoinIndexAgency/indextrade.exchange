@@ -221,7 +221,7 @@ function updateBook($order, $action, &$book, &$reportsQueue, $mode = 'normal'){
 		//сортировка 
 		//SELL - от минимальной до максимальной цены 
 		//поправка - так же как и бай 
-		krsort( $book['BOOK'][ 'SELL' ], SORT_NUMERIC );
+		ksort( $book['BOOK'][ 'SELL' ], SORT_NUMERIC );
 		
 		//$book['BOOK'][ 'SELL' ] = array_reverse( $book['BOOK'][ 'SELL' ] );
 		
@@ -421,7 +421,7 @@ function executeTopBook(&$book, &$reportsQueue){
 	krsort($bb, SORT_NUMERIC );
 	
 	$ss = $book['BOOK']['SELL'][ $sTop ];
-	krsort($ss, SORT_NUMERIC );
+	ksort($ss, SORT_NUMERIC );
 	
 	//но приоритет будет ММО ордеру, попробуем найти 
 	$firstMMO = null;
@@ -742,6 +742,24 @@ function realExecuteOrders(&$book, $buyOrderId, $sellOrderId, &$reportsQueue){
 		//buy ордер остаеться
 		$book['ORDERS'][ $buyOrderId ]['amount'] = $buy['amount'] - $sell['amount'];
 		
+		//на случай рестарта сразу нужно зафиксировать 
+		$xy = $ssdb->hget('INDEXTRDADE_LIVE_ORDERS_'.$pair, $buyOrderId);
+		
+		if (!empty($xy)){
+			$xy = json_decode($xy, true);
+			
+			if ($xy['id'] === $buyOrderId){
+				
+				if (!in_array( 'PFILL', $xy['tags'] )){
+					$xy['tags'][] = 'PFILL'; 
+				}
+				
+				$xy['amount'] = $buy['amount'] - $sell['amount'];
+				
+				$ssdb->hset('INDEXTRDADE_LIVE_ORDERS_'.$pair, $buyOrderId, json_encode($xy));
+			}
+		}
+		
 		//выставим флаг что он частично уже исполнен
 		if (!in_array( 'PFILL', $book['ORDERS'][ $buyOrderId ]['tags'] )){
 			$book['ORDERS'][ $buyOrderId ]['tags'][] = 'PFILL'; 
@@ -754,6 +772,14 @@ function realExecuteOrders(&$book, $buyOrderId, $sellOrderId, &$reportsQueue){
 	
 	return true;
 }
+
+/**
+//для частично исполненных ордеров нужно подменят сумму
+//@todo: плохо лучше добавить полое и сохранять все 
+function setPartialFill(&$book, &$redis, &$ssdb, $orderId, $amount){
+	
+}
+***/
 
 //получает топ-цену для указанной стороны в буке 
 function getTopBook(&$book, $side = 'BUY'){
@@ -775,6 +801,9 @@ function getTopBook(&$book, $side = 'BUY'){
 function checkTopBook(&$book){
 	$b = $book['BOOK']['BUY'];
 	$s = $book['BOOK']['SELL'];
+	
+	//var_dump( $b );
+	//var_dump( $s );
 	
 	if (empty($b) || empty($s))
 		return false;
@@ -809,7 +838,7 @@ function rebuildBook(&$book, &$reportsQueue){
 	//сортировка 
 	//SELL - от минимальной до максимальной цены 
 	//поправка - так же как и бай 
-	krsort( $book['BOOK'][ 'SELL' ], SORT_NUMERIC );
+	ksort( $book['BOOK'][ 'SELL' ], SORT_NUMERIC );
 		
 	//BUY - от максимальной до минимальной 
 	krsort( $book['BOOK'][ 'BUY' ], SORT_NUMERIC );
@@ -934,7 +963,6 @@ function printMarketView(&$book, &$reportsQueue, &$redis, $pair){
 	echo "Orders/book: " . count($book['ORDERS']) . "\n";
 	echo "Orders/queue: " . $ordersLen . "\n";
 	
-
 	return true;
 }
 
@@ -977,14 +1005,20 @@ $loop->addPeriodicTimer(0.5, function() use (&$redis, &$bookStatus, &$pair, &$ch
 	if (!empty($cancelQueue)){
 		echo "Cancel order queue length: " . $cancelQueue . "\n";
 		
-		$cq = $redis->lrange( 'INDEXTRDADE_CANCEL_ORDERS_' . $pair, 0, $cancelQueue );
+		while(!empty($redis->llen( 'INDEXTRDADE_CANCEL_ORDERS_' . $pair ))){
+			
+			$idToCancel = $redis->lpop( 'INDEXTRDADE_CANCEL_ORDERS_' . $pair ); // 0, $cancelQueue );
 		
-		if (!empty($cq)){
-			foreach($cq as $orderId){
+			if (!empty($idToCancel)){
 				//перебираем все ордера которые нужно удалить 
-				cancelOrderById($orderId, $book);
+				cancelOrderById($idToCancel, $book, $reportsQueue);
 			}
 		}
+		
+		
+		
+		
+		
 	}
 	
 	$tmp = $redis->lpop('INDEXTRDADE_NEW_ORDERS_'.$pair); // .'_CH' . $ch
@@ -1003,11 +1037,11 @@ $loop->addPeriodicTimer(0.5, function() use (&$redis, &$bookStatus, &$pair, &$ch
 		}
 		else {	
 			echo $tmp . "\n";
-			
-			procOrder($redis, $cmd, $book, $reportsQueue);	
-			
 		}
 	}
+	
+	//процессинг очереди 
+	procOrder($redis, $cmd, $book, $reportsQueue);
 	
 });
 

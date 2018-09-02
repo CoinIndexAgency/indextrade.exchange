@@ -106,18 +106,70 @@ $app->post('/orders/new', function (Request $request, Response $response, array 
 	else {
 		return $response->withJson(Array('status' => 'ERROR', 'error' => 'Invalid quote field type', 'data' => null), 200);
 	}
-	
-	
-	
-	//$redis = $this->get('redis');
-	//$books = $redis->hgetall('INDEXTRDADE_MARKET_VIEW');
-	//var_dump( $redis ); exit();
-	
-	$resp = $response->withJson($request, 200);
-	//getBody()->write( $redis->info() );
-
-    return $resp;
 });
+
+//отмена моего ордера 
+$app->post('/orders/cancel', function (Request $request, Response $response, array $args) {
+    if ($request->getOriginalMethod() !== 'POST'){
+		return $response->withJson(Array('status' => 'ERROR', 'error' => 'Invalid method', 'data' => null), 200);
+	}
+	
+	$order = $request->getParsedBody();
+	
+	$uid = 42;
+	$pair = $order['pair'];
+	$oid = $order['orderID'];
+	
+	//@todo отменят только свои ордера, проверять юзера 
+	
+	if (empty($order)){
+		return $response->withJson(Array('status' => 'ERROR', 'error' => 'Invalid body', 'data' => null), 200);
+	}
+	
+	$ssdb 	= $this->get('ssdb');
+	$xx 	= $ssdb->hget('INDEXTRDADE_LIVE_ORDERS_'.$pair, $oid);
+	
+	if (empty($xx)){
+		return $response->withJson(Array('status' => 'ERROR', 'error' => 'Invalid order', 'data' => null), 200);
+	}
+	
+	$baseOrder = json_decode( $xx, true );
+	
+	if ($baseOrder['id'] != $oid){
+		return $response->withJson(Array('status' => 'ERROR', 'error' => 'Invalid order id', 'data' => null), 200);
+	}
+	
+	//проверить UID 
+	
+	$command = Array(
+		'act' 	=> 'REM',
+		'body'	=> $baseOrder
+	);
+		
+	$redis = $this->get('redis');
+	$redis->rpush( 'INDEXTRDADE_NEW_ORDERS_CH0',  json_encode($command));
+		
+	//отправим репорт, что приняли 
+	//$ssdb = $this->get('ssdb');
+	//$report = Array('type' => 'PROPOSED', 'msg' => 'Order sended to API front-end', 'orderID' => $order['id'], 'raw' => $order, 'ts' => t());
+	//$ssdb->qpush_back('INDEXTRDADE_EXECUTION_REPORTS', json_encode($report));
+				
+	return $response->withJson(Array('status' => 'OK', 'error' => null, 'data' => Array('orderID' => $oid)), 200);
+	
+
+
+    return $response;
+});
+
+//даг
+$app->get('/debug/orders/live', function (Request $request, Response $response, array $args) {
+	$ssdb 	= $this->get('ssdb');
+	$pair = 'XXX/USDT';
+	$xx 	= $ssdb->hkeys('INDEXTRDADE_LIVE_ORDERS_'.$pair, '', '', 100);
+	
+	return $response->withJson(Array('status' => 'OK', 'error' => null, 'data' => $xx), 200);
+});
+
 
 //возвращает текущий маркет-вью по инструменту 
 $app->get('/market/overview', function (Request $request, Response $response, array $args) {
@@ -153,14 +205,24 @@ $app->get('/user/orders/last', function (Request $request, Response $response, a
 	$limit = 10;
 	$db = $this->get('db');
 	
+	$ssdb = $this->get('ssdb');
+	$z = $ssdb->hkeys('INDEXTRDADE_LIVE_ORDERS_' . $symbol, '', '', 99999);
+	
 	$p_id = $db->fetchOne('SELECT _id FROM exchange_pairs_tbl WHERE pair_name = "'.$symbol.'" LIMIT 1');
 	$uid = 1;
 	
-	$res = $db->fetchAll('SELECT order_uuid AS orderID, order_type, order_side, order_exec, order_datetime, order_price, order_amount, order_fee, order_status, order_is_partial_filled FROM exchange_real_orders_tbl WHERE order_uid = ? AND order_status = "live" AND order_pair_id = ? ORDER BY order_datetime DESC LIMIT ' . $limit, Array($uid, $p_id));
+	$res = $db->fetchAll('SELECT order_uuid AS orderID, order_type, order_side, order_exec, order_datetime, order_price, order_amount, order_fee, order_status, order_partial_filled FROM exchange_real_orders_tbl WHERE order_uid = ? AND order_status = "live" AND order_pair_id = ? ORDER BY order_datetime DESC LIMIT ' . $limit, Array($uid, $p_id));
 	
 	$orders = Array();
 	
 	foreach($res as $x){
+		if (!in_array($x['orderID'], $z))
+			continue;
+		
+		
+		if (!empty($x['order_partial_filled']))
+			$x['order_amount'] = $x['order_amount'] - $x['order_partial_filled'];
+				
 		$x['order_price'] = round( $x['order_price'] / 1000000000, 6 );
 		$x['order_amount'] = round( $x['order_amount'] / 1000000000, 6 );
 		$x['order_fee'] = round( $x['order_fee'] / 1000000000, 6 );
