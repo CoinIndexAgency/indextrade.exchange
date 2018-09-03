@@ -94,7 +94,7 @@ $server = new Server(function (ServerRequestInterface $request) use (&$log, &$с
 			//екзекьюшин репорт об аллокации 
 			$report = Array('type' => 'ALLOCATE', 'msg' => 'Funds '.$params['symbol'].' allocated by amount ' . $params['amount'], 'orderID' => $params['orderID'], 'ts' => t());
 			
-			
+			     
 			try{ 
 				$tmp = json_encode($report); 
 				

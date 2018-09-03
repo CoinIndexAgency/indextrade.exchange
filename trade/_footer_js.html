@@ -16,11 +16,21 @@
 <script src="//static.indextrade.exchange/plugins/jquery-counterup/jquery.counterup.min.js"></script>
 <script src="//static.indextrade.exchange/plugins/toastr/toastr.min.js"></script>
 
+<!--<script src="//static.indextrade.exchange/js/pages/notifications.js"></script>-->
 
 <script src="//static.indextrade.exchange/plugins/metrojs/MetroJs.min.js"></script>
 <script src="//static.indextrade.exchange/js/modern.js"></script>
 
+
+
 <script>
+	toastr.options.newestOnTop = true;
+	toastr.options.preventDuplicates = false;
+	toastr.options.timeOut = 2000; // How long the toast will display without user interaction
+	toastr.options.extendedTimeOut = 2000;
+	toastr.options.progressBar = true;
+	
+
 	var centrifuge = new Centrifuge({
         url: 'https://socket.indextrade.exchange/connection',
         user: 		'<?php echo $userId; ?>',
@@ -57,7 +67,50 @@
 	
 	//пока сюда будут и екзекюшин репорты приходить 
 	centrifuge.subscribe("public#<?php echo $userId; ?>", function(message) {
-        //console.log(message);
+        var d = message.data;
+			
+			if (d.type == 'report'){
+				if (d.message.type == 'PLACED' || d.message.type == 'REJECT' || d.message.type == 'CANCEL' || d.message.type == 'FILL' || d.message.type == 'PFILL' || d.message.type == 'CLOSE'){
+					idxt.reloadMyPositionStat();
+				}
+				
+				if (d.message.type == 'PLACED' || d.message.type == 'CANCEL'){
+					idxt.reloadMyOrders();
+				}
+
+				if (d.message.type == 'PLACED'){
+					toastr.success('Successful placed to trading system', 'Order status');
+				}
+				
+				if (d.message.type == 'CANCEL'){
+					toastr.warning('Canceled order', 'Order status');
+				}
+				
+				if (d.message.type == 'REJECT'){
+					toastr.error('Rejected: ' + d.message.msg, 'Order status');
+				}
+				
+				if (d.message.type == 'FILL'){
+					toastr.success('Your order filled by full amount', 'Order status');
+				}
+				
+				if (d.message.type == 'PFILL'){
+					toastr.success('Your order partial filled', 'Order status');
+				}
+				
+				if (d.message.type == 'CLOSE'){
+					toastr.success('Cool! Order full filled and closed', 'Order status');
+				}
+				
+				if (d.message.type == 'PROPOSED'){
+					toastr.warning('Queued for processing...', 'Order status');
+				}
+				
+				
+				
+			}
+		
+		//console.log(message);
     });
 	
 	

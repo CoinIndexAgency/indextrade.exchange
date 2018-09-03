@@ -29,6 +29,9 @@ $mainTimer = 0.01;
 $doSilent = false; //не оповещать центрифугу
 $pair = 'XXX/USDT';
 
+//о каких репортах оповещать юзера 
+$reportToUser = Array('PROPOSED', 'REJECT', 'CANCEL', 'PLACED', 'FILL', 'PFILL', 'CLOSE');
+
 if (count($argv) > 1){
 	$_argv = array_flip($argv);
 	
@@ -67,7 +70,7 @@ if (count($argv) > 1){
 
 
 //Главный цикл обработки событий 
-$loop->addPeriodicTimer(0.20, function() use (&$db, &$redis, &$ssdb, &$log, &$pair, &$o2uid, &$сentrifugo){
+$loop->addPeriodicTimer(0.20, function() use (&$db, &$redis, &$ssdb, &$log, &$pair, &$o2uid, &$сentrifugo, &$reportToUser){
 	$_res = $ssdb->qpop_front('INDEXTRDADE_EXECUTION_REPORTS', 1);
 	
 	if ($_res == null) return;
@@ -140,30 +143,32 @@ $loop->addPeriodicTimer(0.20, function() use (&$db, &$redis, &$ssdb, &$log, &$pa
 				
 					//удалить в очереди
 					$ssdb->hdel('INDEXTRDADE_LIVE_ORDERS_'.$pair, $res['orderID']);
+					
+					break;
 				}
 				//отмена ордера 
 				case 'CANCEL' : {
-					
+					break;
 				}
 				//ордер добавлен в бук 
 				case 'SAVED' : {
-					
+					break;
 				}
 				//ордер добавлен в бук 
 				case 'PLACED' : {
-					
+					break;
 				}
 				//этапы проверки
 				case 'CHECK' : {
-					
+					break;
 				}
 				//базово ордер принят и зарегистрирован
 				case 'PROPOSED' : {
-					
+					break;
 				}
 				case 'FILL' : {
 					//полностью заполнен ордер встречной заявкой
-					
+					break;
 				}
 				case 'PFILL' : {
 					//ордер частично исполнен
@@ -172,6 +177,8 @@ $loop->addPeriodicTimer(0.20, function() use (&$db, &$redis, &$ssdb, &$log, &$pa
 					if (!empty($_raw['volume'])){					
 						$db->query('UPDATE exchange_real_orders_tbl SET order_status = "pfilled", order_partial_filled = order_partial_filled + '.$_raw['volume'].', order_last_status_changed_at = UNIX_TIMESTAMP(), order_cancel_at = 0 WHERE order_uuid = "'.$res['orderID'].'" LIMIT 1');
 					}
+					
+					break;
 				}
 				//ордер полностью исполнен
 				case 'CLOSE' : {
@@ -179,6 +186,8 @@ $loop->addPeriodicTimer(0.20, function() use (&$db, &$redis, &$ssdb, &$log, &$pa
 					
 					//удалить в очереди
 					$ssdb->hdel('INDEXTRDADE_LIVE_ORDERS_'.$pair, $res['orderID']);
+					
+					break;
 				}
 				//другие типы репортов
 				default: {
@@ -201,11 +210,14 @@ $loop->addPeriodicTimer(0.20, function() use (&$db, &$redis, &$ssdb, &$log, &$pa
 			}
 		
 		
-		
-		if ($doSilent != true && !empty($_uid)){
-			//отправит в Centrifugu пока что так напрямую
-			$_uid = 42;		
-			$сentrifugo->publish('public#idxt' . $_uid, Array( 'type' => 'report', 'message' => $res ));
+		$_uid = 42;
+		if ($doSilent == false && !empty($_uid)){
+			if (in_array($res['type'], $reportToUser)){			
+				//$log->info( 'Report route to user session (at trading desc or mobile terminal)' );
+				//отправит в Centrifugu пока что так напрямую
+				$_uid = 42;		
+				$сentrifugo->publish('public#idxt' . $_uid, Array( 'type' => 'report', 'message' => $res ));
+			}
 		}
 		
 		$log->info( $res['msg'] . ' :: ' . $res['orderID'] . ' :: ' . $res['type'] . ' :: ' . date('r', $res['ts']/10000));

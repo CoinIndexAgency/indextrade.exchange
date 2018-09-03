@@ -205,8 +205,8 @@ $app->get('/user/orders/last', function (Request $request, Response $response, a
 	$limit = 10;
 	$db = $this->get('db');
 	
-	$ssdb = $this->get('ssdb');
-	$z = $ssdb->hkeys('INDEXTRDADE_LIVE_ORDERS_' . $symbol, '', '', 99999);
+	//$ssdb = $this->get('ssdb');
+	//$z = $ssdb->hkeys('INDEXTRDADE_LIVE_ORDERS_' . $symbol, '', '', 99999);
 	
 	$p_id = $db->fetchOne('SELECT _id FROM exchange_pairs_tbl WHERE pair_name = "'.$symbol.'" LIMIT 1');
 	$uid = 1;
@@ -216,8 +216,8 @@ $app->get('/user/orders/last', function (Request $request, Response $response, a
 	$orders = Array();
 	
 	foreach($res as $x){
-		if (!in_array($x['orderID'], $z))
-			continue;
+		//if (!in_array($x['orderID'], $z))
+		//	continue;
 		
 		
 		if (!empty($x['order_partial_filled']))
@@ -239,6 +239,61 @@ $app->get('/user/orders/last', function (Request $request, Response $response, a
 		return $response->withJson(Array('status' => 'ERROR', 'error' => 'Error while orders fetch', 'data' => null), 200);
 });
 
+//позиция по инструменту 
+
+$app->get('/user/position', function (Request $request, Response $response, array $args) {
+    $symbol = $request->getQueryParam('symbol', null);
+	
+	if (empty($symbol)){
+		return $response->withJson(Array('status' => 'ERROR', 'error' => 'Invalid symbol', 'data' => null), 200);
+	}
+	
+	$symbol = strtoupper( $symbol );
+	$uid = 1;
+	$db = $this->get('db');
+	
+	$sql = 'SELECT pair_name, pair_asset, pair_currency FROM exchange_pairs_tbl WHERE pair_name = ? AND pair_status = "traded" LIMIT 1';
+	
+	$p = $db->fetchRow($sql, Array($symbol));
+	
+	if (empty($p)){
+		return $response->withJson(Array('status' => 'ERROR', 'error' => 'Invalid trading pair', 'data' => null), 200);
+	}
+	
+	$sql = 'SELECT currency_symbol, currency_balance, amount_at_orders, amount_at_guarantee, amount_at_pending_withdraw FROM exchange_users_balances_tbl WHERE uid = ? AND currency_symbol = ? ';
+	
+	$asset = $db->fetchRow( $sql, Array($uid, $p['pair_asset']));
+	$currency = $db->fetchRow( $sql, Array($uid, $p['pair_currency']));
+	
+	if (!empty($asset['currency_balance']))
+		$asset['currency_balance'] = round($asset['currency_balance'] / 1000000000, 6);
+	
+	if (!empty($asset['amount_at_orders']))
+		$asset['amount_at_orders'] = round($asset['amount_at_orders'] / 1000000000, 6);
+	
+	if (!empty($asset['amount_at_guarantee']))
+		$asset['amount_at_guarantee'] = round($asset['amount_at_guarantee'] / 1000000000, 6);
+	
+	if (!empty($asset['amount_at_pending_withdraw']))
+		$asset['amount_at_pending_withdraw'] = round($asset['amount_at_pending_withdraw'] / 1000000000, 6);
+	
+	
+	if (!empty($currency['currency_balance']))
+		$currency['currency_balance'] = round($currency['currency_balance'] / 1000000000, 6);
+	
+	if (!empty($currency['amount_at_orders']))
+		$currency['amount_at_orders'] = round($currency['amount_at_orders'] / 1000000000, 6);
+	
+	if (!empty($currency['amount_at_guarantee']))
+		$currency['amount_at_guarantee'] = round($currency['amount_at_guarantee'] / 1000000000, 6);
+	
+	if (!empty($currency['amount_at_pending_withdraw']))
+		$currency['amount_at_pending_withdraw'] = round($currency['amount_at_pending_withdraw'] / 1000000000, 6);
+	
+	
+	
+	return $response->withJson(Array('status' => 'OK', 'error' => null, 'data' => Array('asset' => $asset, 'currency' => $currency)), 200);	
+});
 
 
 $app->run();

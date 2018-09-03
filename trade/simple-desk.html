@@ -324,10 +324,17 @@
 								<div class="panel panel-default">
 									<div class="panel-heading text-center" style="padding:2px !important; height:34px !important;padding-left:20px !important;padding-top:10px !important;">
 										<h4 class="panel-title">Position, Limits and P&amp;L</h4>
+									
+									<div class="panel-control">
+                                        <a href="javascript: void idxt.reloadMyPositionStat();" data-toggle="tooltip" data-placement="top" title="Refresh status manually" class=""><i class="icon-reload"></i>&nbsp;</a>
+										&nbsp;
+                                    </div>
+									
 									</div>
-									<div class="panel-body" style="padding-bottom:12px !important;">
+									<div class="panel-body idxtUserPosition" style="padding-bottom:12px !important;">
 										<ul class="list-unstyled">
-											<li>Asset available<div class="text-success pull-right">123.01 
+											<li>Asset available<div class="text-success pull-right">
+												<span class="idxtPositionAssets">-</span> 
 											<?php 
 												if ($q['type'] == 'FUT')
 													echo $q['contract'];
@@ -335,8 +342,11 @@
 													echo $q['ass'];
 											?>
 											</div></li>
-											<li>Currency available<div class="text-success pull-right">1233 <?php echo $q['cur'];?></div></li>
-											<li>Margin deposit<div class="text-success pull-right">100 <?php echo $q['cur'];?><i class="fa fa-level-up"></i></div></li>
+											<li>Currency available<div class="text-success pull-right">
+											<span class="idxtPositionCurrency">-</span> <?php echo $q['cur'];?></div></li>
+											<li>Margin deposit<div class="text-success pull-right">
+											<span class="idxtPositionMargins">-</span> <?php echo $q['cur'];?>
+											<!--<i class="fa fa-level-up"></i>--></div></li>
 											<li>Position/Long<div class="text-default pull-right">12/200</div></li>
 											<li>Position/Short<div class="text-default pull-right">10/198</div></li>
 											<li>Unrealized P&amp;L<div class="text-success pull-right">200 <?php echo $q['cur'];?><i class="fa fa-level-up"></i></div></li>
@@ -345,7 +355,7 @@
 								</div>
 								</div>
 							</div>
-						</div>
+						</div> 
 					</div>
 					</div>
 					</div>
@@ -547,7 +557,7 @@
 				if (!price || !amount || !side || !symbol) return;
 			
 				$.post('/orders/new', {price: price, amount: amount, side: side, symbol: symbol}, function(d, status, dType){
-					console.log( [d, status, dType]  );
+					//console.log( [d, status, dType]  );
 					
 					if (d && d.data && d.data.orderID){
 						console.log('Order Accepted! ID: ' + d.data.orderID);
@@ -555,6 +565,8 @@
 						$.getJSON('/user/orders/last?symbol=' + curAsset.symbol + '&_' + new Date().getTime(), function(d){
 							if (d && !d.error && d.data){
 								idxt.renderUserLastOrders( d.data );
+								
+								idxt.reloadMyPositionStat();
 							}
 						});
 					}
@@ -639,12 +651,12 @@
 							
 						_buyBook.reverse();
 						
-						var _str = '';
+						var _str = ''; 
 							
 							_.each(_buyBook, function(val, i){
 								_str = _str + ' ' + 
 									'<div class="row" style="font-weight:normal;height:50% !important;">' + 
-										'<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:red;">' +
+										'<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:red;cursor:pointer;" onclick="javascript: idxt.prefillPrice('+val[0]+');">' +
 											Big(val[0]).toPrecision(6) + 
 										'</div>' +
 										'<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">' +
@@ -674,7 +686,7 @@
 							_.each(_sellBook, function(val, i){
 								_str = _str + ' ' + 
 									'<div class="row" style="font-weight:normal;height:50% !important;">' + 
-										'<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:green;">' +
+										'<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;color:green;cursor:pointer;" onclick="javascript: idxt.prefillPrice('+val[0]+');">' +
 											Big(val[0]).toPrecision(6) + 
 										'</div>' +
 										'<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">' +
@@ -713,17 +725,23 @@
 					
 			}
 			
-			idxt.renderUserLastOrders = function(data){
-				console.log('My orders');
-				console.info( data );
+			idxt.renderUserLastOrders = function(data, callBack){
+				//console.log('My orders');
+				//console.info( data );
 				
 				var el = $('.idxtMyOrders'); 
 				var _str = '';
 				
 				_.each(data, function(o){
 					var dt = o.order_datetime.split(' ');
+					var _label = 'label-success';
+					
+					if (o.order_side == 'SELL')
+						_label = 'label-danger';
+					
+					
 					var t = '<tr><th scope="row" class="idxtMyOrderRow idxtOrder'+o.orderID+'" style="text-align:center;cursor:pointer;" title="'+o.order_datetime+'">'+dt[1]+'</th>' + 
-                                '<td><span class="label label-success">'+o.order_side+'</span></td>' + 
+                                '<td><span class="label '+_label+'">'+o.order_side+'</span></td>' + 
                                 '<td>'+o.order_price+'</td>' + 
 								'<td>'+o.order_amount+'</td>' + 
 								'<td>'+o.order_total+'</td>' + 
@@ -732,7 +750,33 @@
 						_str = _str + t;
 				});
 				
-				el.empty().html( _str );				
+				el.empty().html( _str );	
+
+				if ($.isFunction(callBack))
+					callBack();
+			};
+			
+			//предзаполнение цены 
+			idxt.prefillPrice = function(price){
+				if (!price) return;
+				
+				var form = $('.idxtSellForm');
+					form.find('.idxtPrice').val( price );
+				
+				var form = $('.idxtBuyForm');
+					form.find('.idxtPrice').val( price );
+					
+				return;				
+			};
+			
+			idxt.renderMyPosition = function(data, callBack){
+				var el = $('.idxtUserPosition');
+					el.find('.idxtPositionAssets').html( data.asset.currency_balance );
+					el.find('.idxtPositionCurrency').html( data.currency.currency_balance );
+					el.find('.idxtPositionMargins').html( data.currency.amount_at_guarantee );
+					
+					
+					//currency_symbol, currency_balance, amount_at_orders, amount_at_guarantee, amount_at_pending_withdraw
 			}
 			
 			//запрос на отмену моего ордера 
@@ -740,13 +784,15 @@
 				console.log('Request cancelation of order: ' + orderID);
 				
 				$.post('/orders/cancel', {orderID: orderID, pair:curAsset.symbol}, function(d, status, dType){
-					console.log( [d, status, dType]  );
+					//console.log( [d, status, dType]  );
 					
 					if (d && d.data && d.data.orderID){
 						console.log('Order cancelation accepted! ID: ' + d.data.orderID);
 						
 						var el = $('.idxtMyOrders'); 
 							el.find('.idxtOrder' + d.data.orderID).parent().remove();
+							
+						idxt.reloadMyPositionStat();
 					}
 					else
 					if (d && d.error && d.status && d.status == 'ERROR'){
@@ -756,7 +802,34 @@
 				
 			}
 			
-			                                       
+			//обновление списка моих ордеров 
+			idxt.reloadMyOrders = function( symbol, callBack ){
+				if (!symbol && curAsset && curAsset.symbol) 
+					symbol = curAsset.symbol;
+				else
+					return;
+				
+				$.getJSON('/user/orders/last?symbol=' + symbol + '&_' + new Date().getTime(), function(d){
+					if (d && !d.error && d.data){
+						idxt.renderUserLastOrders( d.data, callBack );
+					}
+				});
+			}
+			
+			//позиция по инструменту 
+			idxt.reloadMyPositionStat = function( symbol, callBack ){
+				if (!symbol && curAsset && curAsset.symbol) 
+					symbol = curAsset.symbol;
+				else
+					return;
+				
+				$.getJSON('/user/position?symbol=' + symbol + '&_' + new Date().getTime(), function(d){
+					if (d && !d.error && d.data){
+						//console.log( d.data );
+						idxt.renderMyPosition( d.data, callBack );
+					}
+				});
+			};
 			
 			
 			//загружаем текущий маркет овервью 
@@ -767,13 +840,9 @@
 					}
 				});
 				
-				$.getJSON('/user/orders/last?symbol=' + curAsset.symbol + '&_' + new Date().getTime(), function(d){
-					if (d && !d.error && d.data){
-						idxt.renderUserLastOrders( d.data );
-					}
-				});
-				
-				
+				idxt.reloadMyOrders();
+
+				idxt.reloadMyPositionStat();
 			} 
 		   
 		</script>
