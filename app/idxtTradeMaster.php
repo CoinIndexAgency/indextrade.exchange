@@ -282,7 +282,7 @@ function cancelOrderById($orderId, &$book, &$reportsQueue){
 		$book['STAT'][ $r['side'] ]['orders']--;
 		$book['STAT'][ $r['side'] ]['volume'] = $book['STAT'][ $r['side'] ]['volume'] - $r['amount'];
 		
-		$report = Array('type' => 'CANCEL', 'msg' => 'Order canceled', 'orderID' => $orderId, 'ts' => $ts);
+		$report = Array('type' => 'DELISTED', 'msg' => 'Delisted form book', 'orderID' => $orderId, 'ts' => $ts);
 		$reportsQueue[] = $report;	
 	}
 	
@@ -994,8 +994,7 @@ echo "Book snapshot restored: " . count($book['ORDERS']) . " orders\n";
 
 $сentrifugo = initCentrifugo();
 
-//таймер берет с очереди новую задачу и обрабатывает ее (добавление или удаление ордера или команда)
-$loop->addPeriodicTimer(0.5, function() use (&$redis, &$bookStatus, &$pair, &$ch, &$reportsQueue, &$book){
+$loop->addPeriodicTimer(0.05, function() use (&$redis, &$bookStatus, &$pair, &$reportsQueue, &$book){
 	if ($bookStatus === 'freez') return;
 	
 	//нужно подписаться на парралельно два канала - с отменами и новыми ордерами 	
@@ -1014,12 +1013,32 @@ $loop->addPeriodicTimer(0.5, function() use (&$redis, &$bookStatus, &$pair, &$ch
 				cancelOrderById($idToCancel, $book, $reportsQueue);
 			}
 		}
-		
-		
-		
-		
-		
 	}
+});
+
+//таймер берет с очереди новую задачу и обрабатывает ее (добавление или удаление ордера или команда)
+$loop->addPeriodicTimer(0.5, function() use (&$redis, &$bookStatus, &$pair, &$ch, &$reportsQueue, &$book){
+	if ($bookStatus === 'freez') return;
+	
+	/**
+	//нужно подписаться на парралельно два канала - с отменами и новыми ордерами 	
+	// INDEXTRDADE_CANCEL_ORDERS_' . $order['pair']
+	$cancelQueue = $redis->llen( 'INDEXTRDADE_CANCEL_ORDERS_' . $pair );
+	
+	if (!empty($cancelQueue)){
+		echo "Cancel order queue length: " . $cancelQueue . "\n";
+		
+		while(!empty($redis->llen( 'INDEXTRDADE_CANCEL_ORDERS_' . $pair ))){
+			
+			$idToCancel = $redis->lpop( 'INDEXTRDADE_CANCEL_ORDERS_' . $pair ); // 0, $cancelQueue );
+		
+			if (!empty($idToCancel)){
+				//перебираем все ордера которые нужно удалить 
+				cancelOrderById($idToCancel, $book, $reportsQueue);
+			}
+		}
+	}
+	**/
 	
 	$tmp = $redis->lpop('INDEXTRDADE_NEW_ORDERS_'.$pair); // .'_CH' . $ch
 	

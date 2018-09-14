@@ -131,6 +131,122 @@ $server = new Server(function (ServerRequestInterface $request) use (&$log, &$с
 	else
 	if ($path == '/allocator/refund'){
 		//Возврат средств 
+		if (!array_key_exists('uid', $params) || !array_key_exists('orderID', $params) || !array_key_exists('symbol', $params)){
+			
+			return new Response(200, Array('Content-Type' => 'application/json'), json_encode(Array('status' => 'ERROR', 'error' => 'Missing required params', 'data' => null)));
+			
+		}
+		
+		//$db = initDb();
+		//$db->getConnection();		
+		$db->beginTransaction();
+try{		
+		//теперь проверить баланс юзера 
+		$userOrdersBalance = $db->fetchOne('SELECT amount_at_orders FROM exchange_users_balances_tbl 
+			WHERE 	uid = ? AND currency_symbol = ? AND balance_status = "full_operated" LIMIT 1', 
+			Array(intval($params['uid']), strval($params['symbol'])));
+		
+		if (empty($userOrdersBalance)){
+			
+			$db->commit();
+			
+			return new Response(200, Array('Content-Type' => 'application/json'), json_encode(Array('status' => 'ERROR', 'error' => 'Empty user balance at orders', 'data' => null)));
+		}
+		
+		//найдем сообщение об аллокации точно этой суммы на этот ордер и отсутствие рефанда 
+		$allocSumm = $db->fetchOne('SELECT amount FROM exchange_users_funds_allocations_tbl WHERE uid = ? AND action = "ALLOCATE" AND order_id = ?', Array(intval($params['uid']), $params['orderID']));
+		
+		if (empty($allocSumm)){
+			$db->commit();
+			
+			return new Response(200, Array('Content-Type' => 'application/json'), json_encode(Array('status' => 'ERROR', 'error' => 'Empty allocation for order', 'data' => null)));
+		}
+		
+		//а теперь сумму рефандов посчитаем
+		// и  EXECUTE - это в рамках совершения сделок 
+		$refundSumm = $db->fetchOne('SELECT SUM(amount) FROM exchange_users_funds_allocations_tbl WHERE uid = ? AND action = "REFUND" AND order_id = ?', Array(intval($params['uid']), $params['orderID']));
+		
+		$executeSumm = $db->fetchOne('SELECT SUM(amount) FROM exchange_users_funds_allocations_tbl WHERE uid = ? AND action = "EXECUTE" AND order_id = ?', Array(intval($params['uid']), $params['orderID']));
+		
+		$feeSumm = $db->fetchOne('SELECT SUM(amount) FROM exchange_users_funds_allocations_tbl WHERE uid = ? AND action = "FEE" AND order_id = ?', Array(intval($params['uid']), $params['orderID']));
+		
+		//к рефанду подлежит начальная сумма аллокейт - (рефанд + екзекьют + фии)
+		$totalToRefund = $allocSumm - (floatval($refundSumm) + floatval($executeSumm) + floatval($feeSumm));
+		
+		if ($totalToRefund < 0){
+			$db->commit();
+			
+			return new Response(200, Array('Content-Type' => 'application/json'), json_encode(Array('status' => 'ERROR', 'error' => 'Error while calculated summ. Please, contact to support, orderID: ' . $params['orderID'], 'data' => null)));
+		}
+		else
+		//рефандим то, что осталось 
+		if ($totalToRefund > 0){
+			$db->query('UPDATE exchange_users_balances_tbl SET currency_balance = currency_balance + '.$totalToRefund.', amount_at_orders = amount_at_orders - '.$totalToRefund.', last_balance_update = NOW() WHERE uid = ? AND currency_symbol = ? AND balance_status = "full_operated" ', Array(intval($params['uid']), strval($params['symbol'])));
+			
+			//теперь запишем рефанд 
+			$db->query('INSERT INTO exchange_users_funds_allocations_tbl SET uid = ?, symbol = ?, amount = ?, action = ?, order_id = ?, updated_at = UNIX_TIMESTAMP()', Array(
+				intval($params['uid']),
+				strval($params['symbol']),
+				floatval($totalToRefund),
+				'REFUND',
+				$params['orderID']
+			));
+			
+			$userBalanceLast = $db->fetchRow('SELECT currency_symbol, currency_balance, amount_at_orders, amount_at_guarantee, last_balance_update FROM exchange_users_balances_tbl 
+			WHERE 	uid = ? AND currency_symbol = ? AND balance_status = "full_operated" LIMIT 1', 
+			Array(intval($params['uid']), strval($params['symbol'])));
+			
+			//обновляем балансы
+			$allBalances = $db->fetchAll('SELECT * FROM exchange_users_balances_tbl WHERE uid = ? ', Array(intval($params['uid'])));
+			
+			$redis->hset('INDEXTRADE_USERS_BALANCES', 'idxt' . intval($params['uid']),  json_encode($allBalances));
+			
+			//екзекьюшин репорт об аллокации 
+			$report = Array('type' => 'REFUND', 'msg' => 'Funds by '.$totalToRefund.'/'.$params['symbol'].' return to user balance', 'orderID' => $params['orderID'], 'ts' => t());
+			
+			try{ 
+				$tmp = json_encode($report); 
+				
+				if (empty($tmp) || !empty(json_last_error())){
+					$log->error( json_last_error_msg() );
+					
+					$db->rollBack();
+					
+					return new Response(200, Array('Content-Type' => 'application/json'), json_encode(Array('status' => 'ERROR', 'error' => json_last_error_msg(), 'data' => null)));
+				}
+				
+				$ssdb->qpush_back('INDEXTRDADE_EXECUTION_REPORTS', $tmp);
+				
+				$db->commit();
+				
+				$userBalanceLast['lastRefund'] = $totalToRefund;
+				
+				return new Response(200, Array('Content-Type' => 'application/json'), json_encode(Array('status' => 'OK', 'error' => null, 'data' => $userBalanceLast)));
+			
+			}catch(\Exception $e){
+				$log->error( $e );
+				
+				$db->rollBack();
+				
+				return new Response(200, Array('Content-Type' => 'application/json'), json_encode(Array('status' => 'ERROR', 'error' => $e->getMessage(), 'data' => null)));
+			}
+			
+			$db->rollBack();
+		
+			return new Response(200, Array('Content-Type' => 'application/json'), json_encode(Array('status' => 'ERROR', 'error' => 'Something gone wrong', 'data' => null)));
+		}
+		else
+		{
+			$db->rollBack();
+		
+			return new Response(200, Array('Content-Type' => 'application/json'), json_encode(Array('status' => 'ERROR', 'error' => 'Something gone wrong', 'data' => null)));
+		}
+
+}catch(\Exception $e){
+	var_dump($e->getMessage());
+}
+
+		
 	}
 	else
 	if ($path == '/allocator/time'){
@@ -195,8 +311,8 @@ $loop->addPeriodicTimer(3, function() use (&$db, &$log){
 	if ($appTs != $dbTs){
 		$log->warning("DB local time and Application time has difference - " . ($appTs - $dbTs));
 	}
-	else
-		$log->info('Time  app and DB sinked OK');
+	//else
+	//	$log->info('Time  app and DB sinked OK');
 
 });
 

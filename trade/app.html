@@ -240,7 +240,6 @@ $app->get('/user/orders/last', function (Request $request, Response $response, a
 });
 
 //позиция по инструменту 
-
 $app->get('/user/position', function (Request $request, Response $response, array $args) {
     $symbol = $request->getQueryParam('symbol', null);
 	
@@ -293,6 +292,66 @@ $app->get('/user/position', function (Request $request, Response $response, arra
 	
 	
 	return $response->withJson(Array('status' => 'OK', 'error' => null, 'data' => Array('asset' => $asset, 'currency' => $currency)), 200);	
+});
+
+//позиция по инструменту 
+$app->get('/user/balance', function (Request $request, Response $response, array $args) {
+    $symbol = $request->getQueryParam('symbol', null);
+	
+	if (empty($symbol)){
+		return $response->withJson(Array('status' => 'ERROR', 'error' => 'Invalid symbol', 'data' => null), 200);
+	}
+	
+	$symbol = strtoupper( $symbol );
+	$uid = 1;
+	$db = $this->get('db');
+	
+	$sql = 'SELECT currency_symbol, currency_balance, currency_type, amount_at_orders, amount_at_guarantee, amount_at_pending_withdraw FROM exchange_users_balances_tbl WHERE uid = ? AND currency_symbol = ? ';
+	
+	$currency = $db->fetchRow( $sql, Array($uid, $symbol));
+	
+	if (!empty($currency['currency_balance']))
+		$currency['currency_balance'] = round($currency['currency_balance'] / 1000000000, 6);
+	
+	if (!empty($currency['amount_at_orders']))
+		$currency['amount_at_orders'] = round($currency['amount_at_orders'] / 1000000000, 6);
+	
+	if (!empty($currency['amount_at_guarantee']))
+		$currency['amount_at_guarantee'] = round($currency['amount_at_guarantee'] / 1000000000, 6);
+	
+	if (!empty($currency['amount_at_pending_withdraw']))
+		$currency['amount_at_pending_withdraw'] = round($currency['amount_at_pending_withdraw'] / 1000000000, 6);
+		
+	//индикативный рейт
+	$currency['indicativeUSDRate'] = 1.0123;
+	
+	$currency['indicativeTotalAmount'] = $currency['currency_balance'] + $currency['amount_at_orders'] + $currency['amount_at_guarantee'] + $currency['amount_at_pending_withdraw'];
+
+	$currency['indicativeUSDBalance'] = round($currency['indicativeUSDRate'] * $currency['indicativeTotalAmount'], 2);
+	
+	
+	return $response->withJson(Array('status' => 'OK', 'error' => null, 'data' => $currency), 200);	
+});
+
+//быстрые глобальные балансы юзера по всем кошелькам 
+$app->get('/user/wallets', function (Request $request, Response $response, array $args) {
+    $uid = 1;
+	$db = $this->get('db');
+	
+	$sql = 'SELECT currency_symbol, currency_balance, currency_type FROM exchange_users_balances_tbl WHERE uid = ? AND balance_status = "full_operated" ';
+	
+	$res = $db->fetchAll( $sql, Array($uid));
+	$currency = Array();
+	
+	foreach($res as $x){
+		if (!empty($x['currency_balance']))
+			$x['currency_balance'] = round($x['currency_balance'] / 1000000000, 3);
+			
+			
+		$currency[] = $x;
+	}
+	
+	return $response->withJson(Array('status' => 'OK', 'error' => null, 'data' => $currency), 200);	
 });
 
 

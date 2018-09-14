@@ -40,6 +40,10 @@
 
     centrifuge.subscribe("public", function(message) {
         console.log(message);
+		
+		if (message && message.data && message.data.type == 'system'){
+			toastr.warning(message.data.message, 'System');
+		}		
     });
 	
 	//подписка на канал по инструменту 

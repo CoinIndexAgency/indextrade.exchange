@@ -29,7 +29,7 @@ $сentrifugo = initCentrifugo();
 $idxtComponents = Array(
 	'allocator' => Array('exec' => 'idxtAllocatorMaster.php', 'params' => '', 'started' => false),
 	'reporter' 	=> Array('exec' => 'idxtExecutionReportsMaster.php', 'params' => '', 'started' => false),
-	'trading'	=> Array('exec' => 'idxtTradeMaster.php', 'params' => ' > /var/log/idxttrademaster.log 2>&1', 'started' => false),
+	'trading'	=> Array('exec' => 'idxtTradeMaster.php', 'params' => ' > /var/log/idxttrademaster.log 2>&1', 'started' => false), 
 	'order'		=> Array('exec' => 'idxtOrdersMaster.php', 'params' => '', 'started' => false)
 );
 
@@ -121,7 +121,7 @@ foreach($idxtComponents as $name => $opts){
 
 
 $zTimer = $loop->addPeriodicTimer(10, function() use (&$redis, &$log, &$idxtComponents, &$loop){
-	$log->info('Cheking status...');
+	$log->info('Cheсking status...');
 	
 	clearstatcache();
 	
@@ -216,6 +216,25 @@ $loop->addSignal(SIGINT, $func = function (int $signal) use (&$idxtComponents, $
 	
 	$loop->stop();	
 });
+
+
+$loop->addPeriodicTimer(3, function() use (&$redis, &$log, &$idxtComponents, &$сentrifugo, &$loop){
+	$platformRun = true; 
+	
+	foreach($idxtComponents as $z){
+		if ($z['started'] == false){
+			$platformRun = false; 
+			break;
+		}
+	}
+	
+	if ($platformRun === false){
+		//что-то не так, оповещаем клиентов 
+		$сentrifugo->publish('public', Array( 'type' => 'system', 'message' => 'Warning! Trading system temporary unavailable'));
+	}
+});
+
+
 
 $loop->run();
 

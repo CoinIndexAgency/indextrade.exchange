@@ -16,7 +16,7 @@
         <link href="//static.indextrade.exchange/plugins/ion.rangeslider/css/ion.rangeSlider.skinFlat.css" rel="stylesheet" type="text/css"/>
 				
 		<script>
-
+			var curAsset = null;
 		</script>
         
     </head>
@@ -66,50 +66,48 @@
 									<div class="tabs-left" role="tabpanel">
 										<!-- Nav tabs -->
 										<ul class="nav nav-tabs" role="tablist" style="margin-right:0px !important;">
-											<li role="presentation" class="active"><a href="#tab1" role="tab" data-toggle="tab" aria-expanded="true"><b>IDXT</b> 
-												<span class="pull-right">&nbsp;&nbsp;&nbsp;139999.21</span></a></li>
+											<li role="presentation" class="active">
+												<a href="#idxtWalletIDXT" role="tab" data-toggle="tab" aria-expanded="true" class="balanceIDXT"><b>IDXT</b> 
+												<span class="pull-right">&nbsp;&nbsp;&nbsp;0</span></a>
+											</li>
 											<li role="presentation" class="">
-												<a href="#tab9" role="tab" data-toggle="tab" aria-expanded="false">
+												<a href="#tabEmpty" role="tab" data-toggle="tab" aria-expanded="false">
 													<b>BTC</b> 
 													<span class="pull-right">&nbsp;&nbsp;&nbsp;0</span>
 												</a>
 											</li>
-											<li role="presentation" class=""><a href="#tab10" role="tab" data-toggle="tab" aria-expanded="false"><b>USDT</b><span class="pull-right">&nbsp;&nbsp;&nbsp;0</span></a></li>
-											<li role="presentation" class=""><a href="#tab11" role="tab" data-toggle="tab" aria-expanded="false"><b>TUSD</b><span class="pull-right">&nbsp;&nbsp;&nbsp;0</span></a></li>
-											<li role="presentation" class=""><a href="#tab12" role="tab" data-toggle="tab" aria-expanded="true"><b>ETH</b><span class="pull-right">&nbsp;&nbsp;&nbsp;0</span></a></li>
-											<li role="presentation" class=""><a href="#tab13" role="tab" data-toggle="tab" aria-expanded="true"><b>NANO</b><span class="pull-right">&nbsp;&nbsp;&nbsp;0</span></a></li>
-											<li role="presentation" class=""><a href="#tab14" role="tab" data-toggle="tab" aria-expanded="true"><b>XRP</b><span class="pull-right">&nbsp;&nbsp;&nbsp;0</span></a></li>
-											<li role="presentation" class=""><a href="#tab15" role="tab" data-toggle="tab" aria-expanded="true"><b>XLM</b><span class="pull-right">&nbsp;&nbsp;&nbsp;0</span></a></li>
-											<li role="presentation" class=""><a href="#tab16" role="tab" data-toggle="tab" aria-expanded="true"><b>EOS</b><span class="pull-right">&nbsp;&nbsp;&nbsp;0</span></a></li>
-											<li role="presentation" class=""><a href="#tab17" role="tab" data-toggle="tab" aria-expanded="true"><b>EMC</b><span class="pull-right">&nbsp;&nbsp;&nbsp;0</span></a></li>
-											<li role="presentation" class=""><a href="#tab18" role="tab" data-toggle="tab" aria-expanded="true"><b>ETC</b><span class="pull-right">&nbsp;&nbsp;&nbsp;0</span></a></li>
-											<li role="presentation" class=""><a href="#tab19" role="tab" data-toggle="tab" aria-expanded="true"><b>BCH</b><span class="pull-right">&nbsp;&nbsp;&nbsp;0</span></a></li>
-											<li role="presentation" class=""><a href="#tab20" role="tab" data-toggle="tab" aria-expanded="true"><b>LTC</b><span class="pull-right">&nbsp;&nbsp;&nbsp;0</span></a></li>
-											<li role="presentation" class=""><a href="#tab21" role="tab" data-toggle="tab" aria-expanded="true"><b>ZEC</b><span class="pull-right">&nbsp;&nbsp;&nbsp;0</span></a></li>
-											<li role="presentation" class=""><a href="#tab22" role="tab" data-toggle="tab" aria-expanded="true"><b>XMR</b><span class="pull-right">&nbsp;&nbsp;&nbsp;0</span></a></li>
-											<li role="presentation" class=""><a href="#tab23" role="tab" data-toggle="tab" aria-expanded="true"><b>DTR</b><span class="pull-right">&nbsp;&nbsp;&nbsp;0</span></a></li>
+											<li role="presentation" class=""><a href="#idxtWalletUSDT" role="tab" data-toggle="tab" aria-expanded="false" class="balanceUSDT"><b>USDT</b><span class="pull-right">&nbsp;&nbsp;&nbsp;0</span></a></li>
+											<li role="presentation" class=""><a href="#tabEmpty" role="tab" data-toggle="tab" aria-expanded="false" class="balanceTUSD"><b>TUSD</b><span class="pull-right">&nbsp;&nbsp;&nbsp;0</span></a></li>
+											<li role="presentation" class=""><a href="#idxtWalletETH" role="tab" data-toggle="tab" aria-expanded="true" class="balanceETH"><b>ETH</b><span class="pull-right">&nbsp;&nbsp;&nbsp;0</span></a></li>
+											<li role="presentation" class=""><a href="#tabEmpty" role="tab" data-toggle="tab" aria-expanded="true" class="balanceNANO"><b>NANO</b><span class="pull-right">&nbsp;&nbsp;&nbsp;0</span></a></li>
+											<li role="presentation" class=""><a href="#tabEmpty" role="tab" data-toggle="tab" aria-expanded="true" class="balanceXRP"><b>XRP</b><span class="pull-right">&nbsp;&nbsp;&nbsp;0</span></a></li>
+											<li role="presentation" class=""><a href="#tabEmpty" role="tab" data-toggle="tab" aria-expanded="true" class="balanceXLM"><b>XLM</b><span class="pull-right">&nbsp;&nbsp;&nbsp;0</span></a></li>
+											<li role="presentation" class=""><a href="#tabEmpty" role="tab" data-toggle="tab" aria-expanded="true" class="balanceEOS"><b>EOS</b><span class="pull-right">&nbsp;&nbsp;&nbsp;0</span></a></li>
+											<li role="presentation" class=""><a href="#tabEmpty" role="tab" data-toggle="tab" aria-expanded="true" class="balanceEMC"><b>EMC</b><span class="pull-right">&nbsp;&nbsp;&nbsp;0</span></a></li>
+											<li role="presentation" class=""><a href="#idxtWalletETC" role="tab" data-toggle="tab" aria-expanded="true" class="balanceETC"><b>ETC</b><span class="pull-right">&nbsp;&nbsp;&nbsp;0</span></a></li>
+											<li role="presentation" class=""><a href="#idxtWalletBCH" role="tab" data-toggle="tab" aria-expanded="true" class="balanceBCH"><b>BCH</b><span class="pull-right">&nbsp;&nbsp;&nbsp;0</span></a></li>
+											<li role="presentation" class=""><a href="#tabEmpty" role="tab" data-toggle="tab" aria-expanded="true" class="balanceLTC"><b>LTC</b><span class="pull-right">&nbsp;&nbsp;&nbsp;0</span></a></li>
+											<li role="presentation" class=""><a href="#tabEmpty" role="tab" data-toggle="tab" aria-expanded="true" class="balanceZEC"><b>ZEC</b><span class="pull-right">&nbsp;&nbsp;&nbsp;0</span></a></li>
+											<li role="presentation" class=""><a href="#tabEmpty" role="tab" data-toggle="tab" aria-expanded="true" class="balanceXMR"><b>XMR</b><span class="pull-right">&nbsp;&nbsp;&nbsp;0</span></a></li>
 											<li role="presentation" class=""><a href="#tabHistory" role="tab" data-toggle="tab" aria-expanded="true"><b>History</b></a></li>
 										</ul>
 										<!-- Tab panes -->
 										<div class="tab-content" style="padding-left:150px !important; padding-right:0px;">
-											<div role="tabpanel" class="tab-pane fade active in" id="tab1">
-												
-											
-															
+						<div role="tabpanel" class="tab-pane fade active in" id="idxtWalletIDXT">
 												
 						<div class="panel panel-transparent" style="">
 							
 							<div class="row" style="height:150px;">
 								<div class="col-xs-2 text-center">
-									<h1><b>IDXT</b></h1>
-									<p>ERC-20 token</p>
+									<h1 class="idxtSymbol"><b>IDXT</b></h1>
+									<p class="idxtAssetType">-</p>
 								</div>
 								<div class="col-xs-2 text-center">
-									<h1>1223884</h1>
+									<h1 class="idxtBalance">-</h1>
 									<p>Available balance</p>
 								</div>
 								<div class="col-xs-2 text-center">
-									<h1>120</h1>
+									<h1 class="idxtMarginDeposit">-</h1>
 									<p>
 										Margin deposit
 										<div>
@@ -118,16 +116,19 @@
 									</p>
 								</div>
 								<div class="col-xs-2 text-center">
-									<h1>12340.2</h1>
+									<h1 class="idxtInOrders">-</h1>
 									<p>In orders</p>
 								</div>
 								<div class="col-xs-2 text-center">
-									<h1>1224004</h1>
+									<h1 class="idxtTotalAmount">-</h1>
 									<p>Total amount</p>
 								</div>
 								<div class="col-xs-2 text-center">
-									<h1>~122.40</h1>
-									<p>Total in USD</p>
+									<h1 class="idxtIndicativeUSDBalance">-</h1>
+									<p>
+										Total in USD
+										<div class="idxtIndicativeUSDRate">&nbsp;</div>
+									</p>
 								</div>
 							</div>
 						
@@ -236,31 +237,610 @@
 							
 							</div>
 							
-							<!--
-							<div class="row" style="margin-left:15px;">
+						</div>
+					
+						</div>
+						
+						<div role="tabpanel" class="tab-pane fade active in" id="idxtWalletUSDT">
+												
+						<div class="panel panel-transparent" style="">
+							
+							<div class="row" style="height:150px;">
+								<div class="col-xs-2 text-center">
+									<h1 class="idxtSymbol"><b>USDT</b></h1>
+									<p class="idxtAssetType">-</p>
+								</div>
+								<div class="col-xs-2 text-center">
+									<h1 class="idxtBalance">-</h1>
+									<p>Available balance</p>
+								</div>
+								<div class="col-xs-2 text-center">
+									<h1 class="idxtMarginDeposit">-</h1>
+									<p>
+										Margin deposit
+										<div>
+											<a href="margins.html" type="button" class="btn btn-default btn-xs">Margin funding panel</a>
+										</div>
+									</p>
+								</div>
+								<div class="col-xs-2 text-center">
+									<h1 class="idxtInOrders">-</h1>
+									<p>In orders</p>
+								</div>
+								<div class="col-xs-2 text-center">
+									<h1 class="idxtTotalAmount">-</h1>
+									<p>Total amount</p>
+								</div>
+								<div class="col-xs-2 text-center">
+									<h1 class="idxtIndicativeUSDBalance">-</h1>
+									<p>
+										Total in USD
+										<div class="idxtIndicativeUSDRate">&nbsp;</div>
+									</p>
+								</div>
+							</div>
+						
+							<div class="row">
+								<div class="col-xs-8">
+									<div class="panel panel-default" style="margin-bottom:5px;">
+										<div class="panel-heading text-center" style="padding:5px !important; height:34px !important;padding-left:20px !important; padding-top:10px !important;">
+											<h3 class="panel-title">
+												Deposit 
+											</h3>
+										</div>
+										<div class="panel-body" style="padding-bottom:0px;">
+											<div class="form-group" style="padding-top:15px !important;">
+												<div class="col-xs-12" style="padding-right:0px !important; padding-left:0px !important;">
+													<div class="input-group m-b-sm" style="width:100%;margin-bottom:0px;">
+														<input type="text" class="form-control" placeholder="" aria-describedby="basic-addon1" style="text-align:center;" value="0x29D5527CaA78f1946a409FA6aCaf14A0a4A02741">
+														
+														<div class="alert alert-success" role="alert" style="margin-bottom:0px;margin-top:30px;">
+															Your personal deposit address. <b style="color:red;">Warning</b>! <b>Do not send your assets from other exchanges</b>!
+														</div>
+														
+														
+													</div>
+																									
+													<div class="input-group m-b-sm">
+														<p class="form-control-static"><b>Deposit fee</b>: 0 (exchanges). Network fee depends on current Gas price</p>
+													</div>													
+												</div>
+											</div>
+										</div>
+									</div>
+								
+								<div class="panel panel-default" style="margin-top:-5px;">
+									<div class="panel-heading" style="padding:2px !important; height:34px !important;padding-left:20px !important;padding-top:10px !important;">
+										<h3 class="panel-title">
+											Withdraw 
+											<?php 
+											if ($q['type'] == 'FUT')
+												echo '<span style="color:black">' . $q['contract'] . '</span>' . ' contract';
+											else
+												echo '<span style="color:black">' . $q['ass'] . '</span>';
+											?>
+										</h3>
+									</div>
+									<div class="panel-body">
+										
+										<div class="form-group" style="padding-top:15px !important;">
+											<div class="col-xs-12" style="padding-right:0px !important; padding-left:0px !important;">
+												<div class="input-group m-b-sm" style="width:100%;">
+													<input type="text" class="form-control" placeholder="Amount to withdraw" aria-describedby="basic-addon1">
+													<span class="input-group-addon" id="basic-addon1" style="width:10%">IDXT</span>
+												</div>
+												
+												<div class="input-group m-b-sm" style="width:100%;margin-bottom:0px;">
+													<input type="text" class="form-control" placeholder="Transfer to IDXT address, e.g. 0x29D5527CaA78f1946a409FA6aCaf14A0a4A02741" aria-describedby="basic-addon1" style="text-align:center;">
+													<div class="alert alert-danger" role="alert" style="margin-bottom:0px;margin-top:30px;">
+															<b>Warning</b>! Do not send your funds directly to other exchange!
+														</div>
+												</div>
+												
+												<div class="input-group m-b-sm" style="width:100%;">
+													<p class="form-control-static"><b>Withdraw fee</b>: 0.123 (including network fee!)</p>
+												</div>
+												
+												<div class="input-group m-b-sm" style="text-align:center; width:100%;margin-bottom:-7px;">
+													<button type="button" class="btn btn-info" style="width:100%;">Start WITHDRAW Operation</button>
+													
+												</div>
+											</div>
+										</div>
+										
+										
+									</div>
+								</div>
+								
+								</div>
+								
+								<div class="col-xs-4">
+									<div class="stats-info" style="margin-right:0px !important;">
+									<div class="panel panel-default">
+										<div class="panel-heading text-center" style="padding:2px !important; height:34px !important;padding-left:20px !important;padding-top:10px !important;">
+											<h4 class="panel-title">Limits</h4>
+										</div>
+										<div class="panel-body" style="padding-bottom:12px !important; height:100%;">
+											<ul class="list-unstyled">
+												<li>Minimal deposit<div class="text-success pull-right">0.1</div></li>
+												<li>Maximum deposit<div class="text-success pull-right">1000</div></li>
+												<li>Minimal withdraw<div class="text-success pull-right">0.25</div></li>
+												<li>Deposit, dayli limit<div class="text-success pull-right">120</div></li>
+												<li>Withdraw, dayli limit<div class="text-success pull-right">1200</div></li>
+												<li>Deposit fee<div class="text-default pull-right">0</div></li>
+												<li>Withdraw fee<div class="text-default pull-right">0.01</div></li>
+												<li>
+													Avg. waiting (depo/withdraw)<div class="text-default pull-right">~2 min</div>
+												</li>
+												<li>
+													Withdraw as IDXT-Code<div class="text-success pull-right"><b>YES</b></div>
+												</li>												
+											</ul>
+										</div>
+									</div>
+									</div>
+								</div>
+							
+							
 							
 							</div>
-							-->
-							
 							
 						</div>
 					
+						</div>
+						
+						<div role="tabpanel" class="tab-pane fade active in" id="idxtWalletETH">
 												
-
+						<div class="panel panel-transparent" style="">
+							
+							<div class="row" style="height:150px;">
+								<div class="col-xs-2 text-center">
+									<h1 class="idxtSymbol"><b>ETH</b></h1>
+									<p class="idxtAssetType">-</p>
+								</div>
+								<div class="col-xs-2 text-center">
+									<h1 class="idxtBalance">-</h1>
+									<p>Available balance</p>
+								</div>
+								<div class="col-xs-2 text-center">
+									<h1 class="idxtMarginDeposit">-</h1>
+									<p>
+										Margin deposit
+										<div>
+											<a href="margins.html" type="button" class="btn btn-default btn-xs">Margin funding panel</a>
+										</div>
+									</p>
+								</div>
+								<div class="col-xs-2 text-center">
+									<h1 class="idxtInOrders">-</h1>
+									<p>In orders</p>
+								</div>
+								<div class="col-xs-2 text-center">
+									<h1 class="idxtTotalAmount">-</h1>
+									<p>Total amount</p>
+								</div>
+								<div class="col-xs-2 text-center">
+									<h1 class="idxtIndicativeUSDBalance">-</h1>
+									<p>
+										Total in USD
+										<div class="idxtIndicativeUSDRate">&nbsp;</div>
+									</p>
+								</div>
+							</div>
+						
+							<div class="row">
+								<div class="col-xs-8">
+									<div class="panel panel-default" style="margin-bottom:5px;">
+										<div class="panel-heading text-center" style="padding:5px !important; height:34px !important;padding-left:20px !important; padding-top:10px !important;">
+											<h3 class="panel-title">
+												Deposit 
+											</h3>
+										</div>
+										<div class="panel-body" style="padding-bottom:0px;">
+											<div class="form-group" style="padding-top:15px !important;">
+												<div class="col-xs-12" style="padding-right:0px !important; padding-left:0px !important;">
+													<div class="input-group m-b-sm" style="width:100%;margin-bottom:0px;">
+														<input type="text" class="form-control" placeholder="" aria-describedby="basic-addon1" style="text-align:center;" value="0x29D5527CaA78f1946a409FA6aCaf14A0a4A02741">
+														
+														<div class="alert alert-success" role="alert" style="margin-bottom:0px;margin-top:30px;">
+															Your personal deposit address. <b style="color:red;">Warning</b>! <b>Do not send your assets from other exchanges</b>!
+														</div>
+														
+														
+													</div>
+																									
+													<div class="input-group m-b-sm">
+														<p class="form-control-static"><b>Deposit fee</b>: 0 (exchanges). Network fee depends on current Gas price</p>
+													</div>													
+												</div>
+											</div>
+										</div>
+									</div>
+								
+								<div class="panel panel-default" style="margin-top:-5px;">
+									<div class="panel-heading" style="padding:2px !important; height:34px !important;padding-left:20px !important;padding-top:10px !important;">
+										<h3 class="panel-title">
+											Withdraw 
+											<?php 
+											if ($q['type'] == 'FUT')
+												echo '<span style="color:black">' . $q['contract'] . '</span>' . ' contract';
+											else
+												echo '<span style="color:black">' . $q['ass'] . '</span>';
+											?>
+										</h3>
+									</div>
+									<div class="panel-body">
+										
+										<div class="form-group" style="padding-top:15px !important;">
+											<div class="col-xs-12" style="padding-right:0px !important; padding-left:0px !important;">
+												<div class="input-group m-b-sm" style="width:100%;">
+													<input type="text" class="form-control" placeholder="Amount to withdraw" aria-describedby="basic-addon1">
+													<span class="input-group-addon" id="basic-addon1" style="width:10%">IDXT</span>
+												</div>
 												
+												<div class="input-group m-b-sm" style="width:100%;margin-bottom:0px;">
+													<input type="text" class="form-control" placeholder="Transfer to IDXT address, e.g. 0x29D5527CaA78f1946a409FA6aCaf14A0a4A02741" aria-describedby="basic-addon1" style="text-align:center;">
+													<div class="alert alert-danger" role="alert" style="margin-bottom:0px;margin-top:30px;">
+															<b>Warning</b>! Do not send your funds directly to other exchange!
+														</div>
+												</div>
+												
+												<div class="input-group m-b-sm" style="width:100%;">
+													<p class="form-control-static"><b>Withdraw fee</b>: 0.123 (including network fee!)</p>
+												</div>
+												
+												<div class="input-group m-b-sm" style="text-align:center; width:100%;margin-bottom:-7px;">
+													<button type="button" class="btn btn-info" style="width:100%;">Start WITHDRAW Operation</button>
+													
+												</div>
 											</div>
-											<div role="tabpanel" class="tab-pane fade" id="tab10">
-												<p>Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Aenean commodo ligula eget dolor. Aenean massa. Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus.</p>
+										</div>
+										
+										
+									</div>
+								</div>
+								
+								</div>
+								
+								<div class="col-xs-4">
+									<div class="stats-info" style="margin-right:0px !important;">
+									<div class="panel panel-default">
+										<div class="panel-heading text-center" style="padding:2px !important; height:34px !important;padding-left:20px !important;padding-top:10px !important;">
+											<h4 class="panel-title">Limits</h4>
+										</div>
+										<div class="panel-body" style="padding-bottom:12px !important; height:100%;">
+											<ul class="list-unstyled">
+												<li>Minimal deposit<div class="text-success pull-right">0.1</div></li>
+												<li>Maximum deposit<div class="text-success pull-right">1000</div></li>
+												<li>Minimal withdraw<div class="text-success pull-right">0.25</div></li>
+												<li>Deposit, dayli limit<div class="text-success pull-right">120</div></li>
+												<li>Withdraw, dayli limit<div class="text-success pull-right">1200</div></li>
+												<li>Deposit fee<div class="text-default pull-right">0</div></li>
+												<li>Withdraw fee<div class="text-default pull-right">0.01</div></li>
+												<li>
+													Avg. waiting (depo/withdraw)<div class="text-default pull-right">~2 min</div>
+												</li>
+												<li>
+													Withdraw as IDXT-Code<div class="text-success pull-right"><b>YES</b></div>
+												</li>												
+											</ul>
+										</div>
+									</div>
+									</div>
+								</div>
+							
+							
+							
+							</div>
+							
+						</div>
+					
+						</div>
+						
+						<div role="tabpanel" class="tab-pane fade active in" id="idxtWalletETC">
+												
+						<div class="panel panel-transparent" style="">
+							
+							<div class="row" style="height:150px;">
+								<div class="col-xs-2 text-center">
+									<h1 class="idxtSymbol"><b>ETC</b></h1>
+									<p class="idxtAssetType">-</p>
+								</div>
+								<div class="col-xs-2 text-center">
+									<h1 class="idxtBalance">-</h1>
+									<p>Available balance</p>
+								</div>
+								<div class="col-xs-2 text-center">
+									<h1 class="idxtMarginDeposit">-</h1>
+									<p>
+										Margin deposit
+										<div>
+											<a href="margins.html" type="button" class="btn btn-default btn-xs">Margin funding panel</a>
+										</div>
+									</p>
+								</div>
+								<div class="col-xs-2 text-center">
+									<h1 class="idxtInOrders">-</h1>
+									<p>In orders</p>
+								</div>
+								<div class="col-xs-2 text-center">
+									<h1 class="idxtTotalAmount">-</h1>
+									<p>Total amount</p>
+								</div>
+								<div class="col-xs-2 text-center">
+									<h1 class="idxtIndicativeUSDBalance">-</h1>
+									<p>
+										Total in USD
+										<div class="idxtIndicativeUSDRate">&nbsp;</div>
+									</p>
+								</div>
+							</div>
+						
+							<div class="row">
+								<div class="col-xs-8">
+									<div class="panel panel-default" style="margin-bottom:5px;">
+										<div class="panel-heading text-center" style="padding:5px !important; height:34px !important;padding-left:20px !important; padding-top:10px !important;">
+											<h3 class="panel-title">
+												Deposit 
+											</h3>
+										</div>
+										<div class="panel-body" style="padding-bottom:0px;">
+											<div class="form-group" style="padding-top:15px !important;">
+												<div class="col-xs-12" style="padding-right:0px !important; padding-left:0px !important;">
+													<div class="input-group m-b-sm" style="width:100%;margin-bottom:0px;">
+														<input type="text" class="form-control" placeholder="" aria-describedby="basic-addon1" style="text-align:center;" value="0x29D5527CaA78f1946a409FA6aCaf14A0a4A02741">
+														
+														<div class="alert alert-success" role="alert" style="margin-bottom:0px;margin-top:30px;">
+															Your personal deposit address. <b style="color:red;">Warning</b>! <b>Do not send your assets from other exchanges</b>!
+														</div>
+														
+														
+													</div>
+																									
+													<div class="input-group m-b-sm">
+														<p class="form-control-static"><b>Deposit fee</b>: 0 (exchanges). Network fee depends on current Gas price</p>
+													</div>													
+												</div>
 											</div>
-											<div role="tabpanel" class="tab-pane fade" id="tab11">
-												<p>Donec quam felis, ultricies nec, pellentesque eu, pretium quis, sem. Nulla consequat massa quis enim. Donec pede justo, fringilla vel, aliquet nec, vulputate eget, arcu. In enim justo, rhoncus ut, imperdiet a, venenatis vitae, justo.</p>
+										</div>
+									</div>
+								
+								<div class="panel panel-default" style="margin-top:-5px;">
+									<div class="panel-heading" style="padding:2px !important; height:34px !important;padding-left:20px !important;padding-top:10px !important;">
+										<h3 class="panel-title">
+											Withdraw 
+											<?php 
+											if ($q['type'] == 'FUT')
+												echo '<span style="color:black">' . $q['contract'] . '</span>' . ' contract';
+											else
+												echo '<span style="color:black">' . $q['ass'] . '</span>';
+											?>
+										</h3>
+									</div>
+									<div class="panel-body">
+										
+										<div class="form-group" style="padding-top:15px !important;">
+											<div class="col-xs-12" style="padding-right:0px !important; padding-left:0px !important;">
+												<div class="input-group m-b-sm" style="width:100%;">
+													<input type="text" class="form-control" placeholder="Amount to withdraw" aria-describedby="basic-addon1">
+													<span class="input-group-addon" id="basic-addon1" style="width:10%">IDXT</span>
+												</div>
+												
+												<div class="input-group m-b-sm" style="width:100%;margin-bottom:0px;">
+													<input type="text" class="form-control" placeholder="Transfer to IDXT address, e.g. 0x29D5527CaA78f1946a409FA6aCaf14A0a4A02741" aria-describedby="basic-addon1" style="text-align:center;">
+													<div class="alert alert-danger" role="alert" style="margin-bottom:0px;margin-top:30px;">
+															<b>Warning</b>! Do not send your funds directly to other exchange!
+														</div>
+												</div>
+												
+												<div class="input-group m-b-sm" style="width:100%;">
+													<p class="form-control-static"><b>Withdraw fee</b>: 0.123 (including network fee!)</p>
+												</div>
+												
+												<div class="input-group m-b-sm" style="text-align:center; width:100%;margin-bottom:-7px;">
+													<button type="button" class="btn btn-info" style="width:100%;">Start WITHDRAW Operation</button>
+													
+												</div>
 											</div>
-											<div role="tabpanel" class="tab-pane fade" id="tab12">
-												<p>Etiam rhoncus. Maecenas tempus, tellus eget condimentum rhoncus, sem quam semper libero, sit amet adipiscing sem neque sed ipsum. Nam quam nunc, blandit vel, luctus pulvinar, hendrerit id, lorem. Maecenas nec odio et ante tincidunt tempus.</p>
+										</div>
+										
+										
+									</div>
+								</div>
+								
+								</div>
+								
+								<div class="col-xs-4">
+									<div class="stats-info" style="margin-right:0px !important;">
+									<div class="panel panel-default">
+										<div class="panel-heading text-center" style="padding:2px !important; height:34px !important;padding-left:20px !important;padding-top:10px !important;">
+											<h4 class="panel-title">Limits</h4>
+										</div>
+										<div class="panel-body" style="padding-bottom:12px !important; height:100%;">
+											<ul class="list-unstyled">
+												<li>Minimal deposit<div class="text-success pull-right">0.1</div></li>
+												<li>Maximum deposit<div class="text-success pull-right">1000</div></li>
+												<li>Minimal withdraw<div class="text-success pull-right">0.25</div></li>
+												<li>Deposit, dayli limit<div class="text-success pull-right">120</div></li>
+												<li>Withdraw, dayli limit<div class="text-success pull-right">1200</div></li>
+												<li>Deposit fee<div class="text-default pull-right">0</div></li>
+												<li>Withdraw fee<div class="text-default pull-right">0.01</div></li>
+												<li>
+													Avg. waiting (depo/withdraw)<div class="text-default pull-right">~2 min</div>
+												</li>
+												<li>
+													Withdraw as IDXT-Code<div class="text-success pull-right"><b>YES</b></div>
+												</li>												
+											</ul>
+										</div>
+									</div>
+									</div>
+								</div>
+							
+							
+							
+							</div>
+							
+						</div>
+					
+						</div>
+						
+						<div role="tabpanel" class="tab-pane fade active in" id="idxtWalletBCH">
+												
+						<div class="panel panel-transparent" style="">
+							
+							<div class="row" style="height:150px;">
+								<div class="col-xs-2 text-center">
+									<h1 class="idxtSymbol"><b>ETH</b></h1>
+									<p class="idxtAssetType">-</p>
+								</div>
+								<div class="col-xs-2 text-center">
+									<h1 class="idxtBalance">-</h1>
+									<p>Available balance</p>
+								</div>
+								<div class="col-xs-2 text-center">
+									<h1 class="idxtMarginDeposit">-</h1>
+									<p>
+										Margin deposit
+										<div>
+											<a href="margins.html" type="button" class="btn btn-default btn-xs">Margin funding panel</a>
+										</div>
+									</p>
+								</div>
+								<div class="col-xs-2 text-center">
+									<h1 class="idxtInOrders">-</h1>
+									<p>In orders</p>
+								</div>
+								<div class="col-xs-2 text-center">
+									<h1 class="idxtTotalAmount">-</h1>
+									<p>Total amount</p>
+								</div>
+								<div class="col-xs-2 text-center">
+									<h1 class="idxtIndicativeUSDBalance">-</h1>
+									<p>
+										Total in USD
+										<div class="idxtIndicativeUSDRate">&nbsp;</div>
+									</p>
+								</div>
+							</div>
+						
+							<div class="row">
+								<div class="col-xs-8">
+									<div class="panel panel-default" style="margin-bottom:5px;">
+										<div class="panel-heading text-center" style="padding:5px !important; height:34px !important;padding-left:20px !important; padding-top:10px !important;">
+											<h3 class="panel-title">
+												Deposit 
+											</h3>
+										</div>
+										<div class="panel-body" style="padding-bottom:0px;">
+											<div class="form-group" style="padding-top:15px !important;">
+												<div class="col-xs-12" style="padding-right:0px !important; padding-left:0px !important;">
+													<div class="input-group m-b-sm" style="width:100%;margin-bottom:0px;">
+														<input type="text" class="form-control" placeholder="" aria-describedby="basic-addon1" style="text-align:center;" value="0x29D5527CaA78f1946a409FA6aCaf14A0a4A02741">
+														
+														<div class="alert alert-success" role="alert" style="margin-bottom:0px;margin-top:30px;">
+															Your personal deposit address. <b style="color:red;">Warning</b>! <b>Do not send your assets from other exchanges</b>!
+														</div>
+														
+														
+													</div>
+																									
+													<div class="input-group m-b-sm">
+														<p class="form-control-static"><b>Deposit fee</b>: 0 (exchanges). Network fee depends on current Gas price</p>
+													</div>													
+												</div>
 											</div>
+										</div>
+									</div>
+								
+								<div class="panel panel-default" style="margin-top:-5px;">
+									<div class="panel-heading" style="padding:2px !important; height:34px !important;padding-left:20px !important;padding-top:10px !important;">
+										<h3 class="panel-title">
+											Withdraw 
+											<?php 
+											if ($q['type'] == 'FUT')
+												echo '<span style="color:black">' . $q['contract'] . '</span>' . ' contract';
+											else
+												echo '<span style="color:black">' . $q['ass'] . '</span>';
+											?>
+										</h3>
+									</div>
+									<div class="panel-body">
+										
+										<div class="form-group" style="padding-top:15px !important;">
+											<div class="col-xs-12" style="padding-right:0px !important; padding-left:0px !important;">
+												<div class="input-group m-b-sm" style="width:100%;">
+													<input type="text" class="form-control" placeholder="Amount to withdraw" aria-describedby="basic-addon1">
+													<span class="input-group-addon" id="basic-addon1" style="width:10%">IDXT</span>
+												</div>
+												
+												<div class="input-group m-b-sm" style="width:100%;margin-bottom:0px;">
+													<input type="text" class="form-control" placeholder="Transfer to IDXT address, e.g. 0x29D5527CaA78f1946a409FA6aCaf14A0a4A02741" aria-describedby="basic-addon1" style="text-align:center;">
+													<div class="alert alert-danger" role="alert" style="margin-bottom:0px;margin-top:30px;">
+															<b>Warning</b>! Do not send your funds directly to other exchange!
+														</div>
+												</div>
+												
+												<div class="input-group m-b-sm" style="width:100%;">
+													<p class="form-control-static"><b>Withdraw fee</b>: 0.123 (including network fee!)</p>
+												</div>
+												
+												<div class="input-group m-b-sm" style="text-align:center; width:100%;margin-bottom:-7px;">
+													<button type="button" class="btn btn-info" style="width:100%;">Start WITHDRAW Operation</button>
+													
+												</div>
+											</div>
+										</div>
+										
+										
+									</div>
+								</div>
+								
+								</div>
+								
+								<div class="col-xs-4">
+									<div class="stats-info" style="margin-right:0px !important;">
+									<div class="panel panel-default">
+										<div class="panel-heading text-center" style="padding:2px !important; height:34px !important;padding-left:20px !important;padding-top:10px !important;">
+											<h4 class="panel-title">Limits</h4>
+										</div>
+										<div class="panel-body" style="padding-bottom:12px !important; height:100%;">
+											<ul class="list-unstyled">
+												<li>Minimal deposit<div class="text-success pull-right">0.1</div></li>
+												<li>Maximum deposit<div class="text-success pull-right">1000</div></li>
+												<li>Minimal withdraw<div class="text-success pull-right">0.25</div></li>
+												<li>Deposit, dayli limit<div class="text-success pull-right">120</div></li>
+												<li>Withdraw, dayli limit<div class="text-success pull-right">1200</div></li>
+												<li>Deposit fee<div class="text-default pull-right">0</div></li>
+												<li>Withdraw fee<div class="text-default pull-right">0.01</div></li>
+												<li>
+													Avg. waiting (depo/withdraw)<div class="text-default pull-right">~2 min</div>
+												</li>
+												<li>
+													Withdraw as IDXT-Code<div class="text-success pull-right"><b>YES</b></div>
+												</li>												
+											</ul>
+										</div>
+									</div>
+									</div>
+								</div>
+							
+							
+							
+							</div>
+							
+						</div>
+					
+						</div>
+						
+					
+						<div role="tabpanel" class="tab-pane fade" id="tabEmpty">
+							<p>Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Aenean commodo ligula eget dolor. Aenean massa. Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus.</p>
+						</div>
 											
-											<div role="tabpanel" class="tab-pane fade" id="tabHistory">
-												<div class="row">
+											
+						<div role="tabpanel" class="tab-pane fade" id="tabHistory">
+							<div class="row">
                         
                         <div class="col-xs-12" style="padding-right:2px !important;">
                             <div class="panel panel-default">
@@ -335,10 +915,62 @@
 		<script src="//static.indextrade.exchange/plugins/ion.rangeslider/js/ion-rangeSlider/ion.rangeSlider.min.js"></script>
         <script src="//static.indextrade.exchange/js/pages/ui-sliders.js"></script>
 		
+		<script src="idxt.js"></script>
 		<script>
-			/*
+			//глобальные балансы юзера 
+			$.getJSON('/user/wallets?_' + new Date().getTime(), function(d){
+				if (d && !d.error && d.data){
+					var _el = $('.nav-tabs');
+					
+					_.each(d.data, function(z){
+						var a = _el.find('.balance' + z.currency_symbol );
+						var _str = '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;';
+						
+						if (z.currency_balance == 0)
+							_str = _str + '&nbsp;&nbsp;&nbsp;&nbsp;';
+
+						a.find('.pull-right').html( _str + '<b style="color:green;">' + z.currency_balance + '</b>' );
+					});					
+				}
+			});
 			
-		   */
+			function renderWalletPosition( symbol,  data ){
+				//console.log( [symbol, data] );
+				
+				var el = $('.tab-content').find('#idxtWallet' + symbol);
+				if (el && data){
+					el.find('.idxtSymbol').html( '<b>'+ data.currency_symbol +'</b>' );
+					el.find('.idxtAssetType').html( data.currency_type );
+					el.find('.idxtBalance').html( data.currency_balance );
+					el.find('.idxtMarginDeposit').html( data.amount_at_guarantee );
+					el.find('.idxtInOrders').html( data.amount_at_orders );
+					el.find('.idxtTotalAmount').html( data.indicativeTotalAmount );
+					el.find('.idxtIndicativeUSDBalance').html( '~' + data.indicativeUSDBalance );
+					el.find('.idxtIndicativeUSDRate').html( 'By price: ' + data.indicativeUSDRate );
+				}
+			}
+			
+			$('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+				var _symbol = '' + e.target;
+					_symbol = _symbol.split('#')[1];
+					_symbol = _symbol.replace('idxtWallet', '');
+				
+				if (_symbol && _symbol != 'tabEmpty'){
+					idxt.reloadMyWalletBalance( _symbol, renderWalletPosition );
+				}
+			});
+		
+		
+		
+		
+			
+			
+		
+		
+			idxt.reloadMyWalletBalance( 'IDXT', renderWalletPosition );
+			
+		
+			
 		</script>
         
     </body>

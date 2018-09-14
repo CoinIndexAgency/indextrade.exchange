@@ -120,19 +120,88 @@ function checkOrderValidity($db = null, $order = null, $log = null){
 }
 
 //отмена ордера 
-function cancelOrder($db = null, $redis = null, $ssdb = null, $order = null){
-	$db->beginTransaction();
-		$t = time();
+function cancelOrder($db = null, $redis = null, $ssdb = null, $httpClient = null, $log = null, $order = null){
+
+		$z = $db->fetchRow('SELECT pair_asset, pair_currency FROM exchange_pairs_tbl WHERE pair_name = "'.$order['pair'].'" LIMIT 1');
 		
-		$db->query('UPDATE exchange_real_orders_tbl SET order_cancel_at = '.$t.', order_status = "canceled", order_last_status_changed_at = '.$t.' WHERE order_uuid = "'.$order['id'].'" LIMIT 1');
+		$_symbol = $z['pair_currency'];
 		
-		//Отмена ордера (уже проверенного)
-		$redis->rpush('INDEXTRDADE_CANCEL_ORDERS_' . $order['pair'], $order['id']); 
+		if ($order['side'] == 'SELL')	
+			$_symbol = $z['pair_asset'];
 		
-		//удаляем
-		$ssdb->hdel('INDEXTRDADE_LIVE_ORDERS_'.$order['pair'], $order['id']);
 		
-	$db->commit();
+		try {	
+			//3.1 Аллоцируем средства (в синхронном режиме)
+			$httpres = $httpClient->get('/allocator/refund?_='. t() . '&uid=1&orderID='.$order['id'].'&symbol='.$_symbol);
+			
+			if ($httpres->getStatusCode() == 200){
+				
+				$jres = $httpres->getBody()->getContents();
+				
+				//var_dump( $jres );
+				
+				if (is_string($jres)){
+					$jres = json_decode($jres, true);
+				}
+				
+				if ($jres['status'] != 'OK'){
+					
+					//$db->rollBack();
+					
+					$log->error( $order['id'] . ' | ' . round( (microtime(true) - $t0)*1000, 3) . " :: ReFunds allocation error: " . $jres['error']);
+					
+					$report = Array('type' => 'REJECT', 'msg' => 'Allocator cant refund by this order with error: ' . $jres['error'], 'orderID' => $order['id'], 'ts' => t());
+				
+					sendExecutionReport($ssdb, $report, $log);
+
+					return;
+				}else {
+					
+					$log->info( $order['id'] . ' | ' . round( (microtime(true) - $t0)*1000, 3) . " :: ReFunds allocated: " . $jres['data']['lastRefund'] .  ' ' . $jres['data']['currency_symbol'] . " :: Total allocated by user: ". $jres['data']['amount_at_orders']);
+					
+					//Отмена ордера (уже проверенного)
+					$redis->rpush('INDEXTRDADE_CANCEL_ORDERS_' . $order['pair'], $order['id']); 
+					
+					$db->beginTransaction();
+						$t = time();
+						
+						$db->query('UPDATE exchange_real_orders_tbl SET order_cancel_at = '.$t.', order_status = "canceled", order_last_status_changed_at = '.$t.' WHERE order_uuid = "'.$order['id'].'" LIMIT 1');
+						
+					$db->commit();	
+					
+					//удаляем
+					$ssdb->hdel('INDEXTRDADE_LIVE_ORDERS_'.$order['pair'], $order['id']);
+
+					return true;
+				}			
+				
+			} else {
+				//$db->rollBack();
+				
+				$log->error( $order['id'] . ' | ' . round( (microtime(true) - $t0)*1000, 3) . " :: Network error while refunds allocate");
+				
+				$report = Array('type' => 'REJECT', 'msg' => 'Network error while refunds allocate', 'orderID' => $order['id'], 'ts' => t());
+				
+				sendExecutionReport($ssdb, $report, $log);
+
+				return;	
+			}	
+
+		}catch(\Exception $e){
+			
+			//$db->rollBack();
+			
+			$log->error('Error with connection to Allocate server: ' . $e->getMessage());
+			
+			$report = Array('type' => 'REJECT', 'msg' => 'Cant refunds allocate, system error', 'orderID' => $order['id'], 'ts' => t());
+				
+			sendExecutionReport($ssdb, $report, $log);
+				
+			return;
+			
+		}
+		
+	//$db->commit();
 	
 	return true;
 }
@@ -449,7 +518,7 @@ $loop->addPeriodicTimer(0.25, function() use (&$db, &$redis, &$ssdb, &$log, &$ru
 				return;
 			}
 			else {
-				$result = cancelOrder($db, $redis, $ssdb, $order);
+				$result = cancelOrder($db, $redis, $ssdb, $httpClient, $log, $order);
 				
 				if ($result === true){
 					$report = Array('type' => 'CANCEL', 'msg' => 'Order canceled by user', 'orderID' => $order['id'], 'ts' => t());
@@ -518,7 +587,7 @@ $loop->addPeriodicTimer(0.25, function() use (&$db, &$redis, &$ssdb, &$log, &$ru
 			
 			$jres = $httpres->getBody()->getContents();
 			
-			var_dump( $jres );
+			//var_dump( $jres );
 			
 			if (is_string($jres)){
 				$jres = json_decode($jres, true);

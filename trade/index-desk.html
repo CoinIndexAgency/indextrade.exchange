@@ -1,0 +1,557 @@
+<?php 
+	namespace IndexTrade;
+	
+	//error_reporting(E_ERROR | E_WARNING | E_PARSE);
+	error_reporting(E_ALL);
+	date_default_timezone_set('UTC');
+	clearstatcache(true);
+	
+	
+
+	include_once( __DIR__ . '/__bootstrap.php');
+	
+	
+	$db 	= initDb();
+	
+	
+	
+	$indices = Array();
+	$totalMCap = 205749061324; //08.09.2018 10:30 UTC
+	//начальная точка 
+	$basePoint = 1536336002;
+	$nowPoint = time();
+	$step = 4 * 3600 ; //4 * 15 * 60; //расчет каждые 15 мин
+	
+	/*
+	$indices['PriceWeight_Top10'] = Array('BTC', 'ETH', 'XRP', 'BCH', 'EOS', 'XLM', 'LTC', 'USDT', 'ADA', 'XMR');
+	$indices['PriceWeight_Top10wBTC'] = Array('XRP', 'BCH', 'EOS', 'XLM', 'LTC', 'USDT', 'ADA', 'XMR', 'MIOTA', 'DASH');
+	$indices['PriceWeight_Top25'] = Array('BTC', 'ETH', 'XRP', 'BCH', 'EOS', 'XLM', 'LTC', 'USDT', 'ADA', 'XMR', 'MIOTA', 'DASH', 'TRX', 'NEO', 'ETC', 'BNB', 'XEM', 'VET', 'XTZ', 'ZEC', 'DOGE', 'OMG', 'LSK', 'BCN', 'ONT');
+	$indices['PriceWeight_Top25wBTC'] = Array('XRP', 'BCH', 'EOS', 'XLM', 'LTC', 'USDT', 'ADA', 'XMR', 'MIOTA', 'DASH', 'TRX', 'NEO', 'ETC', 'BNB', 'XEM', 'VET', 'XTZ', 'ZEC', 'DOGE', 'OMG', 'LSK', 'BCN', 'ONT', 'QTUM', 'ETH');
+	
+	*/
+	$indices['PW_Privacy'] = Array('DASH', 'XMR', 'ZEC', 'BBR', 'XDN', 'XVG', 'ZCL', 'BTCP', 'PIVX', 'ZEN', 'NAV', 'AEON', 'BLK'); 
+	$indices['PW_Trading'] = Array('USDT', 'BNB', 'ZRX', 'NANO', 'KCS', 'HT', 'TUSD', 'BNT', 'ICN', 'BLOCK', 'SAFEX', 'C20', 'BFT', 'TEN', 'KNC','DTR');
+	
+	/*
+	$indices['PDA_Privacy'] = Array('DASH','XMR','ZEC','BBR','XDN','XVG','ZCL','BTCP','PIVX','ZEN','NAV','AEON','BLK'); 
+	$indices['PDA_Trading'] = Array('USDT','BNB','ZRX','NANO','KCS','HT','TUSD','BNT','ICN','BLOCK','SAFEX','C20','BFT','TEN', 'KNC','DTR');
+	*/
+	
+	$indices['ETH'] = Array('ETH');
+	$indices['BTC'] = Array('BTC');
+	
+	//$indices['GA_Trading'] = Array('USDT', 'BNB', 'ZRX', 'NANO', 'KCS', 'HT', 'TUSD', 'BNT', 'ICN', 'BLOCK', 'SAFEX', 'C20', 'BFT', 'TEN', 'KNC','DTR');
+	
+	//=========================================================
+	/**
+	//для начала просто BTC и ETH 
+	$res = $db->fetchAll('SELECT ROUND(price_usd, 2) AS price, updated_at FROM index_assets_quotes_tbl WHERE symbol = "BTC" ORDER BY updated_at DESC LIMIT 1000');
+	
+	$btcPrices = Array();
+	
+	foreach($res as $x){
+		$btcPrices[] = Array( $x['updated_at'] * 1000, $x['price'] );
+	}
+	
+	//ETH
+	$res = $db->fetchAll('SELECT ROUND(price_usd, 2) AS price, updated_at FROM index_assets_quotes_tbl WHERE symbol = "ETH" ORDER BY updated_at DESC LIMIT 1000');
+	
+	$ethPrices = Array();
+	
+	foreach($res as $x){
+		$ethPrices[] = Array( $x['updated_at'] * 1000, $x['price'] );
+	}
+	
+	//итоговые данные 
+	$chartData = Array(
+		'btcindex' => array_reverse( $btcPrices ),
+		'ethindex' => array_reverse( $ethPrices )		
+	);
+	**/
+	//=========================================================
+	$chartData = Array();
+	
+	foreach($indices as $n => $aa){
+		$indexPoint = $basePoint;
+		$d = 1;
+				
+		if ($n == 'PW_Trading' || $n == 'PW_Privacy'){
+			
+			$dt = $db->fetchOne('SELECT SUM(price_usd) FROM index_assets_quotes_tbl WHERE updated_at = 1536336002 AND symbol IN ("'.implode('","', $aa) .'") ');
+			
+			//echo "Total summ: " . $dt . "\n";
+			
+			$d = round( ($dt / 100 /*count( $aa )*/), 9);
+			
+			//echo "Divisor: " . $d . "";
+		}
+		else
+		if ($n == 'PDA_Trading' || $n == 'PDA_Privacy'){
+			$pBase = Array(); //базовые цены
+			
+			foreach($aa as $a){
+				$px = $db->fetchOne('SELECT ROUND(price_usd, 2) FROM index_assets_quotes_tbl WHERE symbol = "'.$a.'" AND updated_at = '.$basePoint.' ORDER BY updated_at DESC LIMIT 1');
+				
+				if (!empty($px))
+					$pBase[ $a ] = $px;
+			}
+		}
+		else
+		if ($n == 'GA_Trading'){
+			
+		}
+		else
+		if ($n == 'BTC' || $n == 'ETH'){
+		
+		}
+		else
+			continue;
+			
+		$indexData = Array();
+
+		while( $indexPoint < $nowPoint ){
+			$_p = Array();
+			$indx = 0;
+			
+			foreach($aa as $a){
+				$px = $db->fetchOne('SELECT ROUND(price_usd, 2) FROM index_assets_quotes_tbl WHERE symbol = "'.$a.'" AND updated_at < '.$indexPoint.' ORDER BY updated_at DESC LIMIT 1');
+				
+				if (!empty($px))
+					$_p[ $a ] = $px;
+			}
+			
+			if (!empty($_p)){
+				if ($n == 'PW_Trading' || $n == 'PW_Privacy'){
+					$z = array_sum( array_values($_p) );
+					
+					$indx = round( $z / $d, 2 );
+				}
+				else
+				if ($n == 'GA_Trading'){
+					
+					$z = 1;
+					
+					foreach($_p as $pz){
+						$z = $z * $pz;
+					}
+					
+					$indx = round(  pow( $z, round(1/count($_p), 6)), 2 );		
+				}
+				else
+				if ($n == 'BTC' || $n == 'ETH'){
+					$indx = round(  $_p[$n], 2 );		
+				}
+				else
+				if ($n == 'PDA_Trading' || $n == 'PDA_Privacy'){
+					$za = Array();
+					
+					foreach($_p as $_pn => $_py){
+						$_pi = round( $_py / $pBase[ $_pn ], 9);
+						
+						$za[] = $_pi;
+					}
+					
+					$indx = round(  array_sum( $za ) / count($za), 4);				
+				}
+				
+				/*
+				$btcPrice = $db->fetchOne('SELECT ROUND(price_usd, 2) FROM index_assets_quotes_tbl WHERE symbol = "BTC" AND updated_at < '.$indexPoint.' ORDER BY updated_at DESC LIMIT 1');
+				
+				$ethPrice = $db->fetchOne('SELECT ROUND(price_usd, 2) FROM index_assets_quotes_tbl WHERE symbol = "ETH" AND updated_at < '.$indexPoint.' ORDER BY updated_at DESC LIMIT 1');
+				*/
+				
+				//echo date('[d.m.Y] h:i', $indexPoint) . ' index value ' . $indx . ', BTC: ' . $btcPrice . ', ETH: ' . $ethPrice . "\n";	
+				
+				$indexData[] = Array($indexPoint*1000, $indx);
+			}
+			
+			$indexPoint = $indexPoint + $step;
+		}
+
+	
+		
+		if ($n == 'PW_Trading'){
+			$chartData['pwtradingindex'] =  $indexData;
+		}
+		else
+		if ($n == 'GA_Trading'){
+			$chartData['gatradingindex'] =  $indexData;
+		}
+		else
+		if ($n == 'PW_Privacy'){
+			$chartData['pwprivacyindex'] =  $indexData;
+		}
+		else
+		if ($n == 'BTC'){
+			$chartData['btcindex'] =  $indexData;
+		}
+		else
+		if ($n == 'ETH'){
+			$chartData['ethindex'] =  $indexData;
+		}
+		else
+		if ($n == 'PDA_Trading' ){
+			$chartData['pdatradingindex'] =  $indexData;
+		}
+		
+	
+	
+	}
+		
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+?>
+<!DOCTYPE html>
+<html>
+    <head>        
+        <?php 
+			include_once('_header_title.html');
+			
+			include_once('_header_js.html');
+		?>		
+		
+		<script>
+			var chartMain = null; // globally available
+			var marketView = null; //текущий маркет-вью
+			var curAsset = {assets : null};
+			var seriesOptions = [
+				{
+					name: 'BTC price, USD',
+					type: 'spline',
+					data: <?php echo json_encode($chartData['btcindex'], false); ?>
+				},
+				{
+					name: 'ETH price, USD',
+					type: 'spline',
+					data: <?php echo json_encode($chartData['ethindex'], false); ?>
+				},
+				{
+					name: 'Trading (PW index)',
+					type: 'spline',
+					data: <?php echo json_encode($chartData['pwtradingindex'], false); ?>
+				},
+				/*{
+					name: 'Trading (GA index)',
+					data: <?php echo json_encode($chartData['gatradingindex'], false); ?>
+				},*/
+				{
+					name: 'Privacy (PW index)',
+					type: 'spline',
+					//step: true,
+					data: <?php echo json_encode($chartData['pwprivacyindex'], false); ?>
+				}/**,
+				{
+					name: 'Trading (VLAC index)',
+					data: <?php echo json_encode($chartData['pdatradingindex'], false); ?>
+				},
+				{
+					name: 'BitShares Benchmark',
+					data: <?php echo json_encode($chartData['btsbench'], false); ?>
+				}**/
+			];
+			
+		</script>
+        
+    </head>
+    <body class="page-horizontal-bar  pace-done page-header-fixed compact-menu">
+        <div class="overlay"></div>
+        <main class="page-content content-wrap">
+            <?php 
+				include_once('_header_menu_top_navigation.html');
+				
+				include_once('_header_menu_trading.html');
+			?>
+            <div class="page-inner" style="min-height:100px !important;">
+                <?php 
+					include_once('_header_menu_main.html');
+				?>
+                <div class="page-title">
+                    <div class="container idxtAssetOverview">                        
+						<div class="row">
+							<div class="col-lg-12 col-md-12">
+								<h3><b>Index Terminal</b>, analytics and reseach whole the markets</h3>
+							</div>
+						</div>
+                    </div>
+                </div>
+                <div id="main-wrapper" class="container" style="margin-top:20px !important;">
+                    
+					
+                    <div class="row">
+                        <div class="col-lg-12 col-md-12" style="padding-right:2px !important;">
+                            <div class="panel panel-white">
+                                
+								<!-- Chart -->
+								<div id="chartContainer" style="width:100%; height:800px;"></div>
+								
+                            </div>
+                        </div>
+					</div>
+					
+					<div class="row">
+						<div class="col-lg-12 col-md-12" style="padding-right:2px !important;">
+							<div class="panel panel-white">
+                                <div class="panel-heading">
+                                    <h4 class="panel-title">About data and indices</h4>
+                                </div>
+                                <div class="panel-body">
+                                    <div class="table-responsive project-stats">  
+                                       <table class="table table-condensed">
+                                           <thead>
+                                               <tr>
+                                                   <th>Index</th>
+												   <th>Unit</th>
+                                                   <th>Asset</th>
+                                                   <th>Type</th>
+                                                   <th>Base value</th>
+                                               </tr>
+                                           </thead>
+                                           <tbody>
+                                               <tr>
+                                                   <th>BTC price index</th>
+                                                   <td>USD</td>
+                                                   <td>BTC (price at USD)</td>
+                                                   <td>Average Price index</td>
+                                                   <td>
+                                                       6465,4 USD (07/09/2018 20:00)
+                                                   </td>
+                                               </tr>
+                                               <tr>
+                                                   <th>ETH price index</th>
+                                                   <td>USD</td>
+                                                   <td>ETH (price at USD)</td>
+                                                   <td>Average Price index</td>
+                                                   <td>
+                                                       217,99 USD (07/09/2018 20:00)
+                                                   </td>
+                                               </tr>
+											   
+											   <tr>
+                                                   <th>Trading index</th>
+                                                   <td>Points</td>
+                                                   <td>USDT (Tether), BNB (Binance coin), ZRX (0х), NANO, KCS (KuCoin Shares), HT (Huobi token), TUSD, BNT (Bancor), ICN (Iconomi), BLOCK (Blocknet), SAFEX (Safe Exchange Coin), C20 (CRYPTO20 Fund), BFT (BnkToTheFuture), TEN (Tokenomy), KNC (Kyber Network), DTR (Dynamic Trading Rights)</td>
+                                                   <td>Average Price-Weighted Index</td>
+                                                   <td>
+                                                       100,00 USD (07/09/2018 20:00)
+                                                   </td>
+                                               </tr>
+											   
+											   <tr>
+                                                   <th>Privacy index</th>
+                                                   <td>Points</td>
+                                                   <td>DASH, XMR (Monero), ZEC (Zcash), BBR (Boolberry), XDN (DigitalNote), XVG (Verge), ZCL (ZClassic), BTCP (Bitcoin Private), PIVX, ZEN (Horizen), NAV (NavCoin), AEON, BLK (BlackCoin)</td>
+                                                   <td>Average Price-Weighted Index</td>
+                                                   <td>
+                                                       100,00 USD (07/09/2018 20:00)
+                                                   </td>
+                                               </tr>
+                                               
+                                           </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+						</div>
+					</div>
+                        
+                   
+					</div>
+                </div><!-- Main Wrapper -->
+                <?php 
+					include_once('_footer_info.html');
+				?>				
+            </div><!-- Page Inner -->
+        </main><!-- Page Content -->
+
+        <div class="cd-overlay"></div>
+	
+
+        <?php 
+			include_once('_footer_js.html');
+		?>
+		
+		<script src="//static.indextrade.exchange/highstock/code/highstock.js"></script>
+		<script src="//static.indextrade.exchange/highstock/code/modules/drag-panes.js"></script>
+		<script src="//static.indextrade.exchange/highstock/code/modules/exporting.js"></script>
+		<script src="//static.indextrade.exchange/highstock/code/indicators/indicators.js"></script>
+		<script src="//static.indextrade.exchange/highstock/code/indicators/volume-by-price.js"></script>
+		
+		<script>
+		
+		Highcharts.theme = {
+		   colors: ['#f45b5b', '#8085e9', '#8d4654', '#7798BF', '#aaeeee', '#ff0066', '#eeaaee',
+			  '#55BF3B', '#DF5353', '#7798BF', '#aaeeee'],
+		   chart: {
+			  backgroundColor: null,
+			  style: {
+				 fontFamily: 'Signika, serif'
+			  }
+		   },
+		   title: {
+			  style: {
+				 color: 'black',
+				 fontSize: '16px',
+				 fontWeight: 'bold'
+			  }
+		   },
+		   subtitle: {
+			  style: {
+				 color: 'black'
+			  }
+		   },
+		   tooltip: {
+			  borderWidth: 0
+		   },
+		   legend: {
+			  itemStyle: {
+				 fontWeight: 'bold',
+				 fontSize: '13px'
+			  }
+		   },
+		   xAxis: {
+			  labels: {
+				 style: {
+					color: '#6e6e70'
+				 }
+			  }
+		   },
+		   yAxis: {
+			  labels: {
+				 style: {
+					color: '#6e6e70'
+				 }
+			  }
+		   },
+		   plotOptions: {
+			  series: {
+				 shadow: true
+			  },
+			  candlestick: {
+				 lineColor: '#404048'
+			  },
+			  map: {
+				 shadow: false
+			  }
+		   },
+
+		   // Highstock specific
+		   navigator: {
+			  xAxis: {
+				 gridLineColor: '#D0D0D8'
+			  }
+		   },
+		   rangeSelector: {
+			  buttonTheme: {
+				 fill: 'white',
+				 stroke: '#C0C0C8',
+				 'stroke-width': 1,
+				 states: {
+					select: {
+					   fill: '#D0D0D8'
+					}
+				 }
+			  }
+		   },
+		   scrollbar: {
+			  trackBorderColor: '#C0C0C8'
+		   },
+
+		   // General
+		   background2: '#E0E0E8'
+
+		};
+
+		// Apply the theme
+		Highcharts.setOptions(Highcharts.theme);
+
+
+		
+		
+		
+		
+$( document ).ready(function() {
+    
+    // create the chart
+    chartMain = Highcharts.stockChart('chartContainer', {
+		rangeSelector: {
+		selected: 2,
+		
+			buttons: [{
+				type: 'hour',
+					count: 1,
+					text: '1ч'
+				}, {
+					type: 'hour',
+					count: 3,
+					text: '3ч'
+				}, {
+					type: 'day',
+					count: 1,
+					text: '1д'
+				}, {
+					type: 'day',
+					count: 3,
+					text: '3д'
+				}, {
+					type: 'week',
+					count: 1,
+					text: '1нед'
+				}, {
+					type: 'month',
+					count: 1,
+					text: '1мес'
+				}, {
+					type: 'all',
+					text: 'Все'
+				}
+			]
+		},
+
+		yAxis: {
+			labels: {
+				formatter: function () {
+					//return this.value + '$';
+					return (this.value > 0 ? ' + ' : '') + this.value + '%';
+				}
+			},
+			plotLines: [{
+				value: 0,
+				width: 2,
+				color: 'silver'
+			}]
+		},
+
+		plotOptions: {
+			series: {
+				compare: 'percent',
+				//showInNavigator: true,
+				compareStart: true
+			}
+		},
+
+		tooltip: {
+			pointFormat: '<span style="color:{series.color}">{series.name}</span>: <b>{point.y}</b>$ ({point.change}%)<br/>',
+			changeDecimals: 2,
+			valueDecimals: 2,
+			split: true
+		},
+
+		series: seriesOptions
+	});
+   
+});
+		
+		</script>
+        
+    </body>
+</html>

@@ -158,6 +158,10 @@ $loop->addPeriodicTimer(0.20, function() use (&$db, &$redis, &$ssdb, &$log, &$pa
 				case 'PLACED' : {
 					break;
 				}
+				//ордер убрас с ордербука 
+				case 'DELISTED' : {
+					break;
+				}
 				//этапы проверки
 				case 'CHECK' : {
 					break;
