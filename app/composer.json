@@ -13,6 +13,10 @@
 		"rybakit/msgpack" : "*",
 		"guzzlehttp/guzzle" : "^6.3",
 		
+		"hybridauth/hybridauth" : "dev-master",
+		"lcobucci/jwt" : "3.2.*",
+		"mdanter/ecc" : "dev-master",
+		
 		"react/react": "dev-master",
 		"react/http" : "^0.8",
 		"react/child-process" : "*"

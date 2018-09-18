@@ -11,14 +11,15 @@
  * @author Georges.L (Geolim4)  <contact@geolim4.com>
  *
  */
-
 declare(strict_types=1);
 
-namespace Phpfastcache\Drivers\Devfalse;
+namespace Phpfastcache\Exceptions;
 
-use Phpfastcache\Config\ConfigurationOption;
-
-class Config extends ConfigurationOption
+/**
+ * Class PhpfastcacheDriverCheckException
+ * @package phpFastCache\Exceptions
+ */
+class PhpfastcacheDriverConnectException extends PhpfastcacheDriverException
 {
 
 }

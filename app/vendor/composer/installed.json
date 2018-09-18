@@ -491,17 +491,17 @@
     },
     {
         "name": "phpfastcache/phpfastcache",
-        "version": "7.0.2",
-        "version_normalized": "7.0.2.0",
+        "version": "7.0.3",
+        "version_normalized": "7.0.3.0",
         "source": {
             "type": "git",
             "url": "https://github.com/PHPSocialNetwork/phpfastcache.git",
-            "reference": "949146e0a83d8d30871d18e16dd1021407c9b17c"
+            "reference": "2b53685853ff7662faf8b314c22ee62801323e2e"
         },
         "dist": {
             "type": "zip",
-            "url": "https://api.github.com/repos/PHPSocialNetwork/phpfastcache/zipball/949146e0a83d8d30871d18e16dd1021407c9b17c",
-            "reference": "949146e0a83d8d30871d18e16dd1021407c9b17c",
+            "url": "https://api.github.com/repos/PHPSocialNetwork/phpfastcache/zipball/2b53685853ff7662faf8b314c22ee62801323e2e",
+            "reference": "2b53685853ff7662faf8b314c22ee62801323e2e",
             "shasum": ""
         },
         "require": {
@@ -532,7 +532,7 @@
             "phpfastcache/riak-client": "~1.4.4",
             "predis/predis": "~1.1.0"
         },
-        "time": "2018-07-23T19:06:45+00:00",
+        "time": "2018-09-05T20:45:26+00:00",
         "type": "library",
         "installation-source": "dist",
         "autoload": {
@@ -1712,17 +1712,17 @@
     },
     {
         "name": "slim/slim",
-        "version": "3.10.0",
-        "version_normalized": "3.10.0.0",
+        "version": "3.11.0",
+        "version_normalized": "3.11.0.0",
         "source": {
             "type": "git",
             "url": "https://github.com/slimphp/Slim.git",
-            "reference": "d8aabeacc3688b25e2f2dd2db91df91ec6fdd748"
+            "reference": "d378e70431e78ee92ee32ddde61ecc72edf5dc0a"
         },
         "dist": {
             "type": "zip",
-            "url": "https://api.github.com/repos/slimphp/Slim/zipball/d8aabeacc3688b25e2f2dd2db91df91ec6fdd748",
-            "reference": "d8aabeacc3688b25e2f2dd2db91df91ec6fdd748",
+            "url": "https://api.github.com/repos/slimphp/Slim/zipball/d378e70431e78ee92ee32ddde61ecc72edf5dc0a",
+            "reference": "d378e70431e78ee92ee32ddde61ecc72edf5dc0a",
             "shasum": ""
         },
         "require": {
@@ -1740,7 +1740,7 @@
             "phpunit/phpunit": "^4.0",
             "squizlabs/php_codesniffer": "^2.5"
         },
-        "time": "2018-04-19T19:29:08+00:00",
+        "time": "2018-09-16T10:54:21+00:00",
         "type": "library",
         "installation-source": "dist",
         "autoload": {

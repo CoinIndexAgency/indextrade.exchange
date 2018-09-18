@@ -1,0 +1,139 @@
+<?php
+/**
+ * A simple example that shows how to use multiple providers, opening provider authentication in a pop-up.
+ */
+
+	error_reporting(E_ERROR | E_WARNING | E_PARSE);
+	date_default_timezone_set('UTC');
+	clearstatcache(true);
+
+	include_once( __DIR__ . '/../trade/__bootstrap.php');
+	include_once( __DIR__ . '/../trade/__authconfig.php');
+
+use Hybridauth\Exception\Exception;
+use Hybridauth\Hybridauth;
+use Hybridauth\HttpClient;
+use Hybridauth\Storage\Session;
+use Lcobucci\JWT\Builder;
+//use Lcobucci\JWT\Signer\Hmac\Sha256;
+
+
+try {
+
+    $hybridauth = new Hybridauth($config);
+    $storage = new Session();
+    $error = false;
+
+    //
+    // Event 1: User clicked SIGN-IN link
+    //
+    if (isset($_GET['provider'])) {
+        // Validate provider exists in the $config
+        if (in_array($_GET['provider'], $hybridauth->getProviders())) {
+            // Store the provider for the callback event
+            $storage->set('provider', $_GET['provider']);
+        } else {
+            $error = $_GET['provider'];
+        }
+    }
+
+    //
+    // Event 2: User clicked LOGOUT link
+    //
+    if (isset($_GET['logout'])) {
+        if (in_array($_GET['logout'], $hybridauth->getProviders())) {
+            // Disconnect the adapter
+            $adapter = $hybridauth->getAdapter($_GET['logout']);
+            $adapter->disconnect();
+        } else {
+            $error = $_GET['logout'];
+        }
+    }
+
+    //
+    // Handle invalid provider errors
+    //
+    if ($error) {
+        error_log('HybridAuth Error: Provider '. json_encode($error) .' not found or not enabled in $config');
+        // Close the pop-up window
+        echo "
+            <script>
+                window.opener.location.reload();
+                window.close();
+            </script>";
+        exit;
+    }
+
+    //
+    // Event 3: Provider returns via CALLBACK
+    //
+    if ($provider = $storage->get('provider')) {
+
+        $hybridauth->authenticate($provider);
+        $storage->set('provider', null);
+
+        // Retrieve the provider record
+        $adapter = $hybridauth->getAdapter($provider);
+        $userProfile = $adapter->getUserProfile();
+        $accessToken = $adapter->getAccessToken();
+
+        // add your custom AUTH functions (if any) here
+        // ...
+        $data = [
+            'token'         => $accessToken,
+            'identifier'    => $userProfile->identifier,
+            'email'         => $userProfile->email,
+            'first_name'    => $userProfile->firstName,
+            'last_name'     => $userProfile->lastName,
+            'photoURL'      => strtok($userProfile->photoURL,'?'),
+            ];
+		
+		echo '<pre>';
+		var_dump( $data );	
+			
+        /* Github
+		array(6) { ["token"]=> array(2) { ["access_token"]=> string(40) "ffbfc86e4ffeebfd864054c28ef8cd16ee79b0c2" ["token_type"]=> string(6) "bearer" } ["identifier"]=> int(65920) ["email"]=> string(22) "aleks.raiden@gmail.com" ["first_name"]=> NULL ["last_name"]=> NULL ["photoURL"]=> string(46) "https://avatars0.githubusercontent.com/u/65920" }
+		*/
+		
+		//$signer = new Sha256();
+		
+		$token = (new Builder())->setIssuer('https://indextrade.exchange') // Configures the issuer (iss claim)
+                        ->setAudience('https://indextrade.exchange') // Configures the audience (aud claim)
+                        ->setId('4f1g23a12aa', true) // Configures the id (jti claim), replicating as a header item
+                        ->setIssuedAt(time()) // Configures the time that the token was issue (iat claim)
+                        ->setNotBefore(time() + 60) // Configures the time that the token can be used (nbf claim)
+                        ->setExpiration(time() + 30 * 24 * 3600) // Configures the expiration time of the token (exp claim)
+                        ->set('uid', 1) // Configures a new claim, called "uid"
+						->set('provider', $provider)
+						->set('token', $accessToken)
+						->set('id', $userProfile->identifier)
+						->set('email', $userProfile->email)
+						->set('name', $userProfile->firstName . ' ' . $userProfile->lastName )
+                        ->getToken(); // Retrieves the generated token
+
+
+		$token->getHeaders(); // Retrieves the token headers
+		$token->getClaims(); // Retrieves the token claims
+
+		echo $token->getHeader('jti') . " \r\n"; // will print "4f1g23a12aa"
+		echo $token->getClaim('iss'). " \r\n"; // will print "http://example.com"
+		echo $token->getClaim('uid'). " \r\n"; // will print "1"
+		echo $token; // The string representation of the object is a JWT string (pretty easy, right?)
+		
+		
+		
+		
+
+        // Close pop-up window
+        echo "
+            <script>
+                //window.opener.location.reload();
+               // window.close();
+            </script>";
+
+    }
+
+} catch (Exception $e) {
+    error_log( $e->getMessage());
+    echo $e->getMessage();
+}

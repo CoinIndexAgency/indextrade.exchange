@@ -21,6 +21,7 @@
         <link href="//static.indextrade.exchange/plugins/waves/waves.min.css" rel="stylesheet" type="text/css"/>	
         <link href="//static.indextrade.exchange/plugins/switchery/switchery.min.css" rel="stylesheet" type="text/css"/>
         <link href="//static.indextrade.exchange/plugins/3d-bold-navigation/css/style.css" rel="stylesheet" type="text/css"/>	
+		<link href="//static.indextrade.exchange/plugins/toastr/toastr.min.css" rel="stylesheet" type="text/css"/>
         
         <!-- Theme Styles -->
         <link href="//static.indextrade.exchange/css/modern.min.css" rel="stylesheet" type="text/css"/>
@@ -47,25 +48,30 @@
                                 <div class="panel-body">
                                     <div class="row">
                                         <div class="col-md-6">
-                                            <a href="index.html" class="logo-name text-lg">IndexTrade</a>
-                                            <p class="m-t-md">Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet.<br> Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet.</p>
+                                            <p class="m-t-md">
+												<div>
+													<a href="index.html" class="logo-name text-lg">
+														<img src="logo.png" align="absmiddle" style="width:100%;border:0px;" />
+													</a>
+												</div>
+											</p>
                                             <p class="m-t-xs text-sm">2017 - 2018 &copy; Powered by CoinIndex Ltd.</p>
                                         </div>
                                         <div class="col-md-6">
                                             <form class="m-t-md" action="login.html">
                                                 <div class="form-group">
-                                                    <input type="text" class="form-control" placeholder="Name" required>
+                                                    <input type="text" class="form-control idxtRegisterName" placeholder="Name (not required)" >
                                                 </div>
                                                 <div class="form-group">
-                                                    <input type="email" class="form-control" placeholder="Email" required>
+                                                    <input type="email" class="form-control idxtRegisterEmail" placeholder="Email" required>
                                                 </div>
                                                 <div class="form-group">
-                                                    <input type="password" class="form-control" placeholder="Password" required>
+                                                    <input type="password" class="form-control idxtRegisterPassword" placeholder="Password" required>
                                                 </div>
                                                 <label>
-                                                    <input type="checkbox"> Agree the terms and policy
+                                                    <input type="checkbox" checked> Agree the terms and policy
                                                 </label>
-                                                <a href="//trade.indextrade.exchange/simple-desc.html" href="login.html" class="btn btn-success btn-block m-t-xs">Submit</a>
+                                                <a href="#" class="btn btn-success btn-block m-t-xs idxtRegisterSubmit">Submit</a>
                                                 <p class="text-center m-t-xs text-sm">Already have an account?</p>
                                                 <a href="login.html" class="btn btn-default btn-block m-t-xs">Login</a>
                                             </form>
@@ -81,7 +87,7 @@
 	
 
         <!-- Javascripts -->
-        <script src="//static.indextrade.exchange/plugins/jquery/jquery-2.1.4.min.js"></script>
+        <script src="//static.indextrade.exchange/js/jquery-2.2.4.min.js"></script>
         <script src="//static.indextrade.exchange/plugins/jquery-ui/jquery-ui.min.js"></script>
         <script src="//static.indextrade.exchange/plugins/pace-master/pace.min.js"></script>
         <script src="//static.indextrade.exchange/plugins/jquery-blockui/jquery.blockui.js"></script>
@@ -91,7 +97,54 @@
         <script src="//static.indextrade.exchange/plugins/uniform/jquery.uniform.min.js"></script>
         <script src="//static.indextrade.exchange/plugins/classie/classie.js"></script>
         <script src="//static.indextrade.exchange/plugins/waves/waves.min.js"></script>
+		<script src="//static.indextrade.exchange/plugins/toastr/toastr.min.js"></script>
         <script src="//static.indextrade.exchange/js/modern.min.js"></script>
+		
+		
+		<script>
+			toastr.options.newestOnTop = true;
+			toastr.options.preventDuplicates = false;
+			toastr.options.timeOut = 5000; // How long the toast will display without user interaction
+			toastr.options.extendedTimeOut = 5000;
+			toastr.options.progressBar = true;
+			
+			$( document ).ready(function() {
+				$('.idxtRegisterSubmit').click(function(e){
+					e.preventDefault();
+					
+					var _name = $('.idxtRegisterName').val();
+					var _email = $('.idxtRegisterEmail').val();
+					var _passw = $('.idxtRegisterPassword').val();
+					
+					if (_email && _passw){
+						
+						$.post('https://trade.indextrade.exchange/user/account/new', 
+							{
+								'_' : new Date().getTime(),
+								'name' : _name,
+								'email' : _email,
+								'passw' : _passw								
+							}, 
+							function(d){
+								if (d && d.status && d.status == 'OK'){
+									alert('Success! Now you can login to trading');
+									
+									top.location = '/login.html?_=' + new Date().getTime();
+								}
+								else
+									toastr.error('Error while user registration', 'Registration');
+							}, 
+							'json'
+						);
+						
+					}
+					else
+						toastr.error('Empty e-mail and/or password', 'Registration');					
+					
+				});				
+				
+			});		
+		</script>
         
     </body>
 </html>
