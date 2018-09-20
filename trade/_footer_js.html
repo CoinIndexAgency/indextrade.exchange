@@ -39,7 +39,7 @@
     });
 
     centrifuge.subscribe("public", function(message) {
-        console.log(message);
+        //console.log(message);
 		
 		if (message && message.data && message.data.type == 'system'){
 			toastr.warning(message.data.message, 'System');
@@ -49,13 +49,13 @@
 	//подписка на канал по инструменту 
 	if (curAsset && curAsset.symbol){
 		centrifuge.subscribe("public:" + curAsset.symbol, function(msg) {
-			console.log(msg);
+			//console.log(msg);
 			
 			if (msg.data.message){
 				var obj = JSON.parse( msg.data.message );
 				
 				if (obj){
-					console.log(obj);
+					//console.log(obj);
 					
 					if (msg.data.type == 'mview'){
 						//это снепшот текущего рынка 

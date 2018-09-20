@@ -21,7 +21,7 @@ $( document ).ready(function() {
     
     $(".live-tile").liveTile();
 	
-	
+/***	
 	$.getJSON('//static.indextrade.exchange/highstock/aapl-ohlcv.json', function (data) {
 
     // split the data set into ohlc and volume
@@ -65,10 +65,10 @@ $( document ).ready(function() {
         title: {
             text: curAsset.name + ' Market'
         },
-		/*
+		
         subtitle: {
             text: 'With SMA and Volume by Price technical indicators'
-        },*/
+        },
 
         yAxis: [{
             startOnTick: false,
@@ -144,9 +144,11 @@ $( document ).ready(function() {
             }
         }]
     });
+	
+	
 });	
 	
-	
+**/	
 	
 	
 	

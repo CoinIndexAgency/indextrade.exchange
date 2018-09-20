@@ -1,12 +1,33 @@
-<!DOCTYPE html>
-<html>
-    <head>
-        <meta content="width=device-width, initial-scale=1" name="viewport"/>
-        <meta charset="UTF-8">
-        <script>
-			top.location = "//indextrade.exchange/login.html";
-		</script>
-    </head>
-    <body>
-    </body>
-</html>
+<?php 
+	error_reporting(E_ERROR | E_WARNING | E_PARSE);
+	date_default_timezone_set('UTC');
+	clearstatcache(true);
+
+	if (empty($_COOKIE['JSESSIONID'])){
+		@header('Location: https://indextrade.exchange/login.html');
+		die();
+	}
+	
+	//если токен есть? Проверить его 
+	include_once( __DIR__ . '/__bootstrap.php');
+
+	use Lcobucci\JWT\Parser;
+	use Lcobucci\JWT\ValidationData;
+	
+	$token = (new Parser())->parse((string) $_COOKIE['JSESSIONID']); // Parses from a string
+	
+	$data = new ValidationData(); // It will use the current time to validate (iat, nbf and exp)
+	$data->setIssuer('https://indextrade.exchange');
+	$data->setAudience('https://indextrade.exchange');
+	
+	$data->setCurrentTime(time());
+
+	if ($token->validate($data) === true){
+		//echo "<h1>VALID, ".(string)$token->getClaim('name')."</h1>";
+		@header('Location: /simple-desk.html');
+	}
+	else {
+		@header('Location: https://indextrade.exchange/login.html?error=Need%20relogin');
+	}	
+	
+	exit();

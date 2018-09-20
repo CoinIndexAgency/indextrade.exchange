@@ -297,3 +297,101 @@ idxt.reloadMyWalletBalance = function( symbol, callBack ){
 		}
 	});
 };	
+
+//построение графика 
+idxt.currentChart = null; 
+
+idxt.createChart = function(symbol){ 
+	// create the chart
+    idxt.currentChart = Highcharts.stockChart('chartContainer', {
+
+        rangeSelector: {
+            selected: 2
+        },
+
+        title: {
+            text: symbol + ' Market'
+        },
+		/*
+        subtitle: {
+            text: 'With SMA and Volume by Price technical indicators'
+        },*/
+
+        yAxis: [{
+            startOnTick: false,
+            endOnTick: false,
+            labels: {
+                align: 'right',
+                x: -3
+            },
+            title: {
+                text: 'Index price'
+            },
+            height: '60%',
+            lineWidth: 2,
+            resize: {
+                enabled: true
+            }
+        }, {
+            labels: {
+                align: 'right',
+                x: -3
+            },
+            title: {
+                text: 'Volume'
+            },
+            top: '65%',
+            height: '35%',
+            offset: 0,
+            lineWidth: 2
+        }],
+
+        tooltip: {
+			pointFormat: '<span style="color:{series.color}">{series.name}</span>: <b>{point.y}</b> ({point.change}%)<br/>',
+			changeDecimals: 2,
+			valueDecimals: 2,
+			split: true
+		},
+
+        plotOptions: {
+           series: {
+				compare: 'percent',
+				//showInNavigator: true,
+				compareStart: true
+			}
+        },
+
+        series: [/**{
+            type: 'candlestick',
+            name: curAsset.name,
+            id: 'eoseth.spot',
+            zIndex: 2,
+            data: ohlc
+        }, {
+            type: 'column',
+            name: 'Volume',
+            id: 'volume',
+            data: volume,
+            yAxis: 1
+        }, {
+            type: 'vbp',
+            linkedTo: 'eoseth.spot',
+            params: {
+                volumeSeriesID: 'volume'
+            },
+            dataLabels: {
+                enabled: false
+            },
+            zoneLines: {
+                enabled: false
+            }
+        }, {
+            type: 'sma',
+            linkedTo: 'eoseth.spot',
+            zIndex: 1,
+            marker: {
+                enabled: false
+            }
+        }**/]
+    });
+}

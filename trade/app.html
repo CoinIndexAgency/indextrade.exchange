@@ -13,6 +13,9 @@ use \Psr\Http\Message\ServerRequestInterface as Request;
 use \Psr\Http\Message\ResponseInterface as Response;
 use Centrifugo\Centrifugo;
 use Ramsey\Uuid;
+use Lcobucci\JWT\Builder;
+use Lcobucci\JWT\Parser;
+use Lcobucci\JWT\ValidationData;
 
 /**
 echo "\n\n";
@@ -22,6 +25,8 @@ echo "Starting ExecutionReports Master...\n\n";
 **/
 
 $container = new \Slim\Container;
+
+//$container['settings'] = Array( 'displayErrorDetails' => true );
 
 
 $container['redis'] = function ($container) {
@@ -42,14 +47,67 @@ $container['db'] = function ($container) {
 $app = new \Slim\App($container);
 
 $app->get('/hello', function (Request $request, Response $response, array $args) {
-    $redis = $this->get('redis');
-	$books = $redis->hgetall('INDEXTRDADE_MARKET_VIEW');
+    //$redis = $this->get('redis');
+	//$books = $redis->hgetall('INDEXTRDADE_MARKET_VIEW');
 	//var_dump( $redis ); exit();
 	
-	$resp = $response->withJson($books, 200);
+	$resp = $response->withJson($this->get('profile'), 200);
 	//getBody()->write( $redis->info() );
 
     return $resp;
+});
+
+
+$app->add(function ($req, $res, $next) {
+    $response = $next($req, $res); 
+    return $response->withHeader('Access-Control-Allow-Origin', '*')
+					->withHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Accept, Origin, Authorization')
+					->withHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+});
+
+$app->add(function ($request, $response, $next){
+	//не проверяем авторизацию
+	$nonAuthPath = Array('/hello', '/debug/orders/live', '/user/account/new', '/user/auth');
+	
+	$path = $request->getUri()->getPath();
+	
+	if (in_array($path, $nonAuthPath) === true){
+		$this['profile'] = null;
+		
+		return $next($request, $response);
+	}
+		
+	
+	$_jwt = $_COOKIE['JSESSIONID'];
+	
+	if (empty($_jwt)){
+		return $response->withRedirect('https://indextrade.exchange/login.html?error=Please%20relogin', 302);
+	}
+	
+	$token = (new Parser())->parse((string) $_COOKIE['JSESSIONID']); // Parses from a string
+	
+	$data = new ValidationData(); // It will use the current time to validate (iat, nbf and exp)
+	$data->setIssuer('https://indextrade.exchange');
+	$data->setAudience('https://indextrade.exchange');
+	
+	$data->setCurrentTime(time());
+
+	if ($token->validate($data) === true){
+		
+		//$container = $this->getContainer();
+		$this['profile'] = Array('uid' => $token->getClaim('uid'), 'name' => $token->getClaim('name') );
+		
+	}
+	else {
+		return $response->withRedirect('https://indextrade.exchange/login.html?error=Please%20relogin', 302);
+	}	
+	
+	//latest check 
+	if (empty($this['profile']['uid']))
+		return $response->withRedirect('https://indextrade.exchange/login.html?error=Please%20relogin', 302);
+	
+	
+	return $next($request, $response);
 });
 
 
@@ -62,7 +120,7 @@ $app->post('/orders/new', function (Request $request, Response $response, array 
 	}
 	
 	$quote = $request->getParsedBody();
-	$uid = 42;
+	$uid = $this['profile']['uid'];
 	
 	if (empty($quote)){
 		return $response->withJson(Array('status' => 'ERROR', 'error' => 'Invalid body', 'data' => null), 200);
@@ -116,7 +174,7 @@ $app->post('/orders/cancel', function (Request $request, Response $response, arr
 	
 	$order = $request->getParsedBody();
 	
-	$uid = 42;
+	$uid = $this['profile']['uid'];
 	$pair = $order['pair'];
 	$oid = $order['orderID'];
 	
@@ -184,13 +242,62 @@ $app->get('/market/overview', function (Request $request, Response $response, ar
 	$redis = $this->get('redis');
 	$mview = $redis->hget('INDEXTRDADE_MARKET_VIEW', $symbol);
 	
+	//получить индекс 
+	$db = $this->get('db');
+	$idata = Array();
+	$ivol = Array();
+	$underlaying_index = $db->fetchOne('SELECT pair_underlaying_index FROM exchange_pairs_tbl WHERE pair_name = ? LIMIT 1', Array($symbol));
+	
+	if (!empty($underlaying_index)){
+		$_realSymbol = null; //какой конкретно курс мы будем брать из CmC
+		
+		if ($underlaying_index == 'XLM_USDT_SPOT')	$_realSymbol = 'XLM';
+		else
+		if ($underlaying_index == 'EOS_ETH_SPOT')	$_realSymbol = 'EOS';
+		else
+		if ($underlaying_index == 'ETH_USD_SPOT')	$_realSymbol = 'ETH';
+		
+		
+		//выбираем последнее 
+		$_res = $db->fetchAll('SELECT ROUND(price_usd, 4) AS price_usd, volume_24h_usd, updated_at FROM index_assets_quotes_tbl WHERE symbol = "'.$_realSymbol.'" 
+			ORDER BY updated_at DESC LIMIT 1008');
+		
+		if ($underlaying_index != 'EOS_ETH_SPOT'){
+			
+			foreach($_res as $z){			
+				$idata[] = Array($z['updated_at']*1000, round($z['price_usd'], 3));
+				$ivol[] = Array($z['updated_at']*1000, round($z['volume_24h_usd']/1000000, 2));
+			}
+			
+		}
+		else {
+			$_zres = $db->fetchAll('SELECT ROUND(price_usd, 4) AS price_usd FROM index_assets_quotes_tbl WHERE symbol = "ETH" 
+			ORDER BY updated_at DESC LIMIT 1008');
+			
+			foreach($_res as $i => $z){			
+				$idata[] = Array($z['updated_at']*1000, round($z['price_usd'] / $_zres[$i]['price_usd'], 3));
+				$ivol[] = Array($z['updated_at']*1000, round(($z['volume_24h_usd'])/1000000, 2));
+			}		
+		}
+		
+		//для облегчения построения графика
+		$idata = array_reverse( $idata );
+		$ivol = array_reverse( $ivol );
+	}
+	
+	
 	if (!empty($mview)){
 		$mview = json_decode( $mview, true, 16 );
-		
-		return $response->withJson(Array('status' => 'OK', 'error' => null, 'data' => $mview), 200);
 	}
 	else
-		return $response->withJson(Array('status' => 'ERROR', 'error' => 'Invalid market overview', 'data' => null), 200);
+		$mview = null;
+
+	return $response->withJson(Array('status' => 'OK', 'error' => null, 'data' => Array(
+		'mview' => $mview, 
+		'idata' => $idata, 
+		'ivol'	=> $ivol,
+		'indexSymbol' => $underlaying_index)), 200);
+	//return $response->withJson(Array('status' => 'ERROR', 'error' => 'Invalid market overview', 'data' => null), 200);
 });
 
 //получить список последних активных ордеров юзера 
@@ -209,7 +316,7 @@ $app->get('/user/orders/last', function (Request $request, Response $response, a
 	//$z = $ssdb->hkeys('INDEXTRDADE_LIVE_ORDERS_' . $symbol, '', '', 99999);
 	
 	$p_id = $db->fetchOne('SELECT _id FROM exchange_pairs_tbl WHERE pair_name = "'.$symbol.'" LIMIT 1');
-	$uid = 1;
+	$uid = $this['profile']['uid'];
 	
 	$res = $db->fetchAll('SELECT order_uuid AS orderID, order_type, order_side, order_exec, order_datetime, order_price, order_amount, order_fee, order_status, order_partial_filled FROM exchange_real_orders_tbl WHERE order_uid = ? AND order_status = "live" AND order_pair_id = ? ORDER BY order_datetime DESC LIMIT ' . $limit, Array($uid, $p_id));
 	
@@ -248,7 +355,7 @@ $app->get('/user/position', function (Request $request, Response $response, arra
 	}
 	
 	$symbol = strtoupper( $symbol );
-	$uid = 1;
+	$uid = $this['profile']['uid'];
 	$db = $this->get('db');
 	
 	$sql = 'SELECT pair_name, pair_asset, pair_currency FROM exchange_pairs_tbl WHERE pair_name = ? AND pair_status = "traded" LIMIT 1';
@@ -303,7 +410,7 @@ $app->get('/user/balance', function (Request $request, Response $response, array
 	}
 	
 	$symbol = strtoupper( $symbol );
-	$uid = 1;
+	$uid = $this['profile']['uid'];
 	$db = $this->get('db');
 	
 	$sql = 'SELECT currency_symbol, currency_balance, currency_type, amount_at_orders, amount_at_guarantee, amount_at_pending_withdraw FROM exchange_users_balances_tbl WHERE uid = ? AND currency_symbol = ? ';
@@ -335,7 +442,7 @@ $app->get('/user/balance', function (Request $request, Response $response, array
 
 //быстрые глобальные балансы юзера по всем кошелькам 
 $app->get('/user/wallets', function (Request $request, Response $response, array $args) {
-    $uid = 1;
+    $uid = $this['profile']['uid'];
 	$db = $this->get('db');
 	
 	$sql = 'SELECT currency_symbol, currency_balance, currency_type FROM exchange_users_balances_tbl WHERE uid = ? AND balance_status = "full_operated" ';
@@ -353,6 +460,227 @@ $app->get('/user/wallets', function (Request $request, Response $response, array
 	
 	return $response->withJson(Array('status' => 'OK', 'error' => null, 'data' => $currency), 200);	
 });
+
+//быстрая и простая регистрация 
+$app->post('/user/account/new', function (Request $request, Response $response, array $args) {
+    $name = $request->getParam('name', null);
+	$passw = $request->getParam('passw', null);
+	$email = strtolower( $request->getParam('email', null) );
+	
+	//$response->withHeader('Access-Control-Allow-Origin', '*');
+   // $response->withHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Accept, Origin, Authorization');
+   // $response->withHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+		
+	if (empty($passw)){
+		return $response->withJson(Array('status' => 'ERROR', 'error' => 'Invalid password', 'data' => null), 200);
+	}
+	if (empty($email)){
+		return $response->withJson(Array('status' => 'ERROR', 'error' => 'Invalid email', 'data' => null), 200);
+	}
+	
+	if (empty($name)){
+		$name = explode('@', $email)[0];
+	}
+	
+	$db = $this->get('db');
+	
+	$sql = 'SELECT uid FROM exchange_users_tbl WHERE user_email = ?';
+	$res = $db->fetchOne( $sql, Array($email));
+	
+	if (!empty($res)){
+		return $response->withJson(Array('status' => 'ERROR', 'error' => 'User already registered', 'data' => null), 200);
+	}
+	
+	$pswd = password_hash( $passw, PASSWORD_DEFAULT );
+	
+	if ($pswd === false){
+		return $response->withJson(Array('status' => 'ERROR', 'error' => 'Unknown error', 'data' => null), 200);
+	}
+	
+	//создаем юзера 
+	$db->beginTransaction();
+	
+try {
+	
+	$sql = 'INSERT INTO exchange_users_tbl SET user_name = ?, user_email = ?, user_password = ?, user_status = ?, user_registered_at = NOW(), user_verification_level = ?, user_country = ? ';
+	
+	$db->query($sql, Array(
+		$name,
+		$email,
+		$pswd,
+		'user',
+		1,
+		'Unknown'	
+	));
+		
+	$uid = $db->lastInsertId('exchange_users_tbl');
+	
+	if (empty($uid)){
+		$db->rollBack();
+		
+		return $response->withJson(Array('status' => 'ERROR', 'error' => 'Unknown error after registration', 'data' => null), 200);
+	}
+	
+	//тестовые балансы всем 
+	$testBalance = Array(
+		'BTC' 	=> Array(10000, 'Bitcoin'),
+		'IDXT' 	=> Array(100000000, 'ERC-20 token'), 
+		'ETH' 	=> Array(10000, 'Ethereum'), 
+		'EOS' 	=> Array(10000, 'EOS.IO Token'),
+		'NANO' 	=> Array(100000000, 'Trading Currency'),
+		'TUSD' 	=> Array(100000000, 'TrueUSD Stable token'),
+		'USDT' 	=> Array(100000000, 'Tether USD'),
+		'XLM' 	=> Array(10000, 'Stellar')
+	);
+	
+	foreach($testBalance as $ss => $x){
+		$sql = 'INSERT INTO exchange_users_balances_tbl SET  
+			uid = ?,
+			currency_symbol = ?,
+			currency_type	= ?,
+			currency_balance = ?,
+			amount_at_orders = 0,
+			amount_at_guarantee = 0,
+			amount_at_pending_withdraw = 0,
+			last_balance_update = NOW(),
+			last_balance_transaction_id = 0,
+			last_balance_changes = 0,
+			last_balance_transaction_status = "ok",
+			balance_status = "full_operated" ';
+			
+		$db->query( $sql, Array(
+			$uid,
+			$ss,
+			$x[1],
+			$x[0] * 1000000000
+		) );
+	}
+	
+	//начальные права 
+	$db->query('INSERT INTO exchange_users_rights_tbl SET uid = ?, right_rule = "new_order_create", right_value = 1, right_created_at = NOW(), right_updated_at = NOW() ', Array($uid));
+	
+	$db->query('INSERT INTO exchange_users_rights_tbl SET uid = ?, right_rule = "max_opened_orders", right_value = 25, right_created_at = NOW(), right_updated_at = NOW() ', Array($uid));
+	
+	$db->query('INSERT INTO exchange_users_rights_tbl SET uid = ?, right_rule = "trading_spot", right_value = 1, right_created_at = NOW(), right_updated_at = NOW() ', Array($uid));
+	
+	$db->query('INSERT INTO exchange_users_rights_tbl SET uid = ?, right_rule = "trading_futures", right_value = 1, right_created_at = NOW(), right_updated_at = NOW() ', Array($uid));
+	
+	$db->query('INSERT INTO exchange_users_rights_tbl SET uid = ?, right_rule = "trading_indices", right_value = 1, right_created_at = NOW(), right_updated_at = NOW() ', Array($uid));
+	
+	$db->query('INSERT INTO exchange_users_rights_tbl SET uid = ?, right_rule = "can_withdraw_any", right_value = 0, right_created_at = NOW(), right_updated_at = NOW() ', Array($uid));
+	
+	$db->query('INSERT INTO exchange_users_rights_tbl SET uid = ?, right_rule = "can_deposit_any", right_value = 0, right_created_at = NOW(), right_updated_at = NOW() ', Array($uid));
+	
+	$db->query('INSERT INTO exchange_users_rights_tbl SET uid = ?, right_rule = "can_create_codes", right_value = 1, right_created_at = NOW(), right_updated_at = NOW() ', Array($uid));
+	
+	$db->query('INSERT INTO exchange_users_rights_tbl SET uid = ?, right_rule = "can_deposit_codes", right_value = 1, right_created_at = NOW(), right_updated_at = NOW() ', Array($uid));
+	
+	$db->query('INSERT INTO exchange_users_rights_tbl SET uid = ?, right_rule = "can_login_webterminal", right_value = 1, right_created_at = NOW(), right_updated_at = NOW() ', Array($uid));
+	
+	$db->query('INSERT INTO exchange_users_rights_tbl SET uid = ?, right_rule = "can_change_passw", right_value = 1, right_created_at = NOW(), right_updated_at = NOW() ', Array($uid));
+	
+	$db->query('INSERT INTO exchange_users_rights_tbl SET uid = ?, right_rule = "can_change_email", right_value = 1, right_created_at = NOW(), right_updated_at = NOW() ', Array($uid));
+	
+	$db->query('INSERT INTO exchange_users_rights_tbl SET uid = ?, right_rule = "can_use_2fa", right_value = 1, right_created_at = NOW(), right_updated_at = NOW() ', Array($uid));
+	
+	
+}catch(\Exception $e){
+	$db->rollBack();
+	
+	return $response->withJson(Array('status' => 'ERROR', 'error' => 'Unknown error in reg process', 'data' => null), 200);
+}	
+	
+	
+	$db->commit();
+	
+	return $response->withJson(Array('status' => 'OK', 'error' => null, 'data' => null), 200);
+});
+
+
+//простая быстрая авторизация 
+$app->post('/user/auth', function (Request $request, Response $response, array $args) {
+    sleep(1);
+	
+	$passw = strval( $request->getParsedBodyParam('passw', null) );
+	$email = strtolower( $request->getParsedBodyParam('email', null) );
+	
+	//$response->withHeader('Access-Control-Allow-Origin', );
+   // $response->withHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Accept, Origin, Authorization');
+   // $response->withHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+		
+	if (empty($passw)){
+		return $response->withRedirect('https://indextrade.exchange/login.html?error=Invalid%20password', 302);
+		//return $response->withJson(Array('status' => 'ERROR', 'error' => 'Invalid password', 'data' => null), 200);
+	}
+	if (empty($email)){
+		return $response->withRedirect('https://indextrade.exchange/login.html?error=Invalid%20email', 302);
+		//return $response->withJson(Array('status' => 'ERROR', 'error' => 'Invalid email', 'data' => null), 200);
+	}
+	
+	$db = $this->get('db');
+	
+	$sql = 'SELECT uid, user_name, user_password FROM exchange_users_tbl WHERE user_email = ?';
+	$res = $db->fetchRow( $sql, Array($email));
+	
+	if (empty($res)){
+		return $response->withRedirect('https://indextrade.exchange/login.html?error=Unknown%20user', 302);		
+		//return $response->withJson(Array('status' => 'ERROR', 'error' => 'Unknown user', 'data' => null), 200);
+	}
+	
+	$chkPassw = password_verify( $passw, $res['user_password'] );
+	
+	if ($chkPassw !== true){
+		return $response->withRedirect('https://indextrade.exchange/login.html?error=Wrong%20password', 302);
+		//return $response->withJson(Array('status' => 'ERROR', 'error' => 'Wrong password', 'data' => null), 200);
+	}
+	
+	$uid = $res['uid'];
+	
+	//проверим возможность логина 
+	$canLogin = boolval($db->fetchOne('SELECT right_value FROM exchange_users_rights_tbl WHERE uid = ? AND right_rule = "can_login_webterminal" ', Array($uid)));
+	
+	if ($canLogin != true){
+		return $response->withRedirect('https://indextrade.exchange/login.html?error=Forbidden%20to%20login', 302);
+		//return $response->withJson(Array('status' => 'ERROR', 'error' => 'User cant login to terminal', 'data' => null), 200);
+	}
+	
+	//генерируем токен 
+	$token = (new Builder())->setIssuer('https://indextrade.exchange') // Configures the issuer (iss claim)
+							->setAudience('https://indextrade.exchange') // Configures the audience (aud claim)
+							->setId('idxt' . $uid, true) // Configures the id (jti claim), replicating as a header item
+							->setIssuedAt(time()) // Configures the time that the token was issue (iat claim)
+							->setNotBefore(time() - 1) // Configures the time that the token can be used (nbf claim)
+							->setExpiration(time() + 30 * 24 * 3600) // Configures the expiration time of the token (exp claim)
+							->set('uid', $uid) // Configures a new claim, called "uid"
+							->set('provider', 'LogPasswLocal')
+							->set('token', '')
+							->set('id', $uid)
+							->set('email', $email)
+							->set('name', $res['user_name'])
+							->getToken(); // Retrieves the generated token
+
+
+		//$token->getHeaders(); // Retrieves the token headers
+		//$token->getClaims(); // Retrieves the token claims
+
+		//echo $token->getHeader('jti') . " \r\n"; // will print "4f1g23a12aa"
+		//echo $token->getClaim('iss'). " \r\n"; // will print "http://example.com"
+		//echo $token->getClaim('uid'). " \r\n"; // will print "1"
+	//	echo $token; // The string representation of the object is a JWT string (pretty easy, right?)
+	
+	setcookie('JSESSIONID', (string)$token, (time() + (30 * 24 * 3600)), '/', '.indextrade.exchange', true, true );
+	
+	/*
+	return $response->withJson(Array('status' => 'OK', 'error' => null, 'data' => Array(
+		//'token' => (string)$token,
+		'name'  => $res['user_name']
+	)), 200);
+	*/
+	return $response->withRedirect('https://trade.indextrade.exchange/?_=' . microtime(true), 301);
+	
+});
+
+
 
 
 $app->run();

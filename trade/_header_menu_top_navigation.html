@@ -58,7 +58,7 @@
 					
 				</ul>
 				<ul class="nav navbar-nav navbar-right">
-					
+					<!--
 					<li class="dropdown">
 						<a href="#" class="dropdown-toggle waves-effect waves-button waves-classic" data-toggle="dropdown"><i class="fa fa-envelope"></i><span class="badge badge-success pull-right">3</span></a>
 						<ul class="dropdown-menu title-caret dropdown-lg" role="menu">
@@ -91,18 +91,19 @@
 							<li class="drop-all"><a href="#" class="text-center">All Messages</a></li>
 						</ul>
 					</li>
+					-->
 					<li class="dropdown">
 						<a href="#" class="dropdown-toggle waves-effect waves-button waves-classic" data-toggle="dropdown">
-							<span class="user-name">Aleks Raiden<i class="fa fa-angle-down"></i></span>
-							<img class="img-circle avatar" src="//static.indextrade.exchange/images/avatar1.png" width="40" height="40" alt="">
+							<span class="user-name"><?php echo $userProfile['name']; ?><i class="fa fa-angle-down"></i></span>
+							<img class="img-circle avatar" src="<?php echo $userProfile['avatar']; ?>" width="40" height="40" alt="">
 						</a>
 						<ul class="dropdown-menu dropdown-list" role="menu">
-							<li role="presentation"><a href="profile.html"><i class="fa fa-user"></i>Profile</a></li>
+							<li role="presentation"><a href="#"><i class="fa fa-user"></i>Profile</a></li>
 							<li role="presentation"><a href="wallet.html"><span aria-hidden="true" class="icon-wallet"></span> Wallet</a></li>
-							<li role="presentation"><a href="inbox.html"><i class="fa fa-envelope"></i>Inbox<span class="badge badge-success pull-right">4</span></a></li>
+							<!--<li role="presentation"><a href="#"><i class="fa fa-envelope"></i>Inbox<span class="badge badge-success pull-right">4</span></a></li>-->
 							<li role="presentation" class="divider"></li>
 							<li role="presentation"><a href="lock-screen.html"><i class="fa fa-lock"></i>Lock screen</a></li>
-							<li role="presentation"><a href="login.html"><i class="fa fa-sign-out m-r-xs"></i>Log out</a></li>
+							<li role="presentation"><a href="logout.html"><i class="fa fa-sign-out m-r-xs"></i>Log out</a></li>
 						</ul>
 					</li>
 					

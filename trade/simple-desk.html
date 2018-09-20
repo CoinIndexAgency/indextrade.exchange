@@ -1,35 +1,85 @@
-<?php 
-	error_reporting(E_ALL);
+<?php
+	namespace IndexTrade;
+ 
+	error_reporting(E_ERROR | E_WARNING | E_PARSE);
+	date_default_timezone_set('UTC');
+	clearstatcache(true);
+	
+	
+
+	if (empty($_COOKIE['JSESSIONID'])){
+		@header('Location: https://indextrade.exchange/login.html');
+		die();
+	}
 	
 	//echo '<pre>';
-	
+	include_once( __DIR__ . '/__bootstrap.php');
 	include_once("libs/symbols.php");
 	
-	$q = Array(); //текущая демо-квота 
+	//$q = Array(); //текущая демо-квота 
 	$_symbol = strval($_GET['symbol']);
 	
-	//if (empty($_symbol))
-	$_symbol = 'XXX/USDT';	
+	if (empty($_symbol))
+		$_symbol = 'ETH/USDT';		//дефолтный инструмент
+		
+	$_symbol = strtoupper( $_symbol );
+	$db =  initDb();	
+		
+		
+		
+		
 	
-	
+	/**
 	if (array_key_exists($_symbol, $__symbols) === true){
 		$q = $__symbols[ $_symbol ];
 	}
 	else {
 		$q = $__symbols[ array_rand($__symbols, 1) ];
 	}
-	
+	**/
 	//получим текущий маркет-вью 
-	//
+	//если токен есть? Проверить его 
+	
+
+	use Lcobucci\JWT\Parser;
+	use Lcobucci\JWT\ValidationData;
+	
+	$token = (new Parser())->parse((string) $_COOKIE['JSESSIONID']); // Parses from a string
+	
+	$data = new ValidationData(); // It will use the current time to validate (iat, nbf and exp)
+	$data->setIssuer('https://indextrade.exchange');
+	$data->setAudience('https://indextrade.exchange');
+	$data->setCurrentTime(time());
+	
+	$userProfile = Array(
+		'name' 		=> 'trader x',
+		'uid'  		=> 1,
+		'email' 	=> 'unknown@indextrade.exchange',
+		'avatar' 	=> '//static.indextrade.exchange/images/user.png'
+	);
+
+
+	if ($token->validate($data) === true){
+		//echo "<h1>VALID, ".(string)$token->getClaim('name')."</h1>";
+		//@header('Location: /simple-desk.html');
+		
+		$userProfile['name'] = (string)$token->getClaim('name');
+		$userProfile['uid'] = (string)$token->getClaim('uid');
+		$userProfile['email'] = (string)$token->getClaim('email');
+		
+	}
+	else {
+		@header('Location: https://indextrade.exchange/login.html?errorCode=101');
+	}	
 	
 	
+	//загружаем данные о текущем инструменте 
+	$sql = 'SELECT pair_name AS symbol, pair_asset, pair_currency, pair_status, pair_market_type, pair_underlaying_index, 
+				sell_order_fee_prc, buy_order_fee_prc, min_fee_abs_value, amount_min, amount_max, max_price_deviation_prc 
+			FROM exchange_pairs_tbl WHERE pair_name = ? LIMIT 1';
+	$q = $db->fetchRow( $sql, Array($_symbol) );
 	
 	
-	//echo $_symbol;
-	//echo '<pre>';
-	//var_dump($q);
-	
-	//exit();
 	
 ?>
 <!DOCTYPE html>
@@ -39,6 +89,8 @@
 			include_once('_header_title.html');
 			
 			include_once('_header_js.html');
+			
+			
 		?>		
 		
 		<script>
@@ -47,8 +99,8 @@
 			var marketView = null; //текущий маркет-вью
 			
 			//тест 
-			curAsset.takerFee = 0.2; 
-			curAsset.makerFee = 0.2; 
+			//curAsset.takerFee = 0.2; 
+			//curAsset.makerFee = 0.2; 
 			
 		</script>
         
@@ -77,10 +129,10 @@
 										echo $q['index'];
 										echo ' ';
 										
-										if ($q['type'] == 'FUT')
-											echo 'Futures market';
+										if ($q['pair_market_type'] == 'Index_Shares')
+											echo 'Index market';
 										else
-										if ($q['type'] == 'SPOT')
+										if ($q['pair_market_type'] == 'FX_Spot')
 											echo 'Spot market';
 									?>
 										<!--EOS/Ethreum Spot market--></a></span>
@@ -89,34 +141,35 @@
 						
 							<div class="col-lg-2 col-md-2 text-center">
 								<h3 class="idxtAssetPrice"><?php echo '-'; //$q['last']; ?><!--0.0171--></h3>
-								<span class="info-box-title">Last price, <?php echo $q['cur']; ?><!--ETH--></span>
+								<span class="info-box-title">Last price, <?php echo $q['pair_currency']; ?><!--ETH--></span>
 							</div>
 							
 							<div class="col-lg-1 col-md-1 text-center">
-								<?php 
+								<?php /* 
 									if ($q['change'] > 0)
 										echo '<h3 style="color:green;" class="idxtAssetChange">'.$q['change'].'</h3>';
 									else
 										echo '<h3 style="color:red;" class="idxtAssetChange">'.$q['change'].'</h3>';
-								
+								*/
 								?>
+								<h3 style="color:red;" class="idxtAssetChange"> - </h3>
 								<!--<h3 style="color:green;">+1.22 <i class="fa fa-level-up"></i></h3>-->
 								<span class="info-box-title">Change, %</span>
 							</div>
 							
 							<div class="col-lg-2 col-md-2 text-center">
 								<h3 class="idxtAssetLowPrice"><?php echo '-'; //$q['low']; ?><!--0.0168--></h3>
-								<span class="info-box-title">Low price, <?php echo $q['cur']; ?><!--ETH--></span>
+								<span class="info-box-title">Low price, <?php echo $q['pair_currency']; ?><!--ETH--></span>
 							</div>
 							
 							<div class="col-lg-2 col-md-2 text-center">
 								<h3 class="idxtAssetHighPrice"><?php echo '-'; // $q['high']; ?><!--0.0174--></h3>
-								<span class="info-box-title">High price, <?php echo $q['cur']; ?><!--ETH--></span>
+								<span class="info-box-title">High price, <?php echo $q['pair_currency']; ?><!--ETH--></span>
 							</div>
 						
 							<div class="col-lg-2 col-md-2 text-center">
 								<h3 class="idxtAsset24hVol"><?php echo '-'; //number_format($q['24hVol'], 0, '.', ' '); ?><!--23 450--></h3>
-								<span class="info-box-title">24H Volume, <?php echo $q['cur']; ?><!--ETH--></span>
+								<span class="info-box-title">24H Volume, <?php echo $q['pair_currency']; ?><!--ETH--></span>
 							</div>	
 						</div>
                     </div>
@@ -160,18 +213,19 @@
 									</div>
 									<div class="row" style="font-weight:bold;height:50% !important;">
 										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											<?php echo $q['cur']; ?>
+											<?php echo $q['pair_currency']; ?>
 										</div>
 										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
 											<?php 
-												if ($q['type'] == 'FUT')
-													echo $q['contract'];
-												else
-													echo $q['ass'];
+												//if ($q['type'] == 'FUT')
+												//	echo $q['contract'];
+												//else
+												//	echo $q['ass'];
+												echo $q['symbol'];
 											?>
 										</div>
 										<div class="col-lg-4 col-md-4 text-center" style="padding-right:0px !important; padding-left:0px !important;">
-											<?php echo $q['cur']; ?>
+											<?php echo $q['pair_currency']; ?>
 										</div>
 									</div>
 								<div class="idxtAssetBookBUY">	
@@ -208,12 +262,12 @@
                                     <h3 class="panel-title">
 										Buy 
 										<?php 
-										if ($q['type'] == 'FUT')
-											echo '<span style="color:black">' . $q['contract'] . '</span>' . ' contract';
-										else
-											echo '<span style="color:black">'.$q['ass'].'</span>';
+										//if ($q['type'] == 'FUT')
+										//	echo '<span style="color:black">' . $q['contract'] . '</span>' . ' contract';
+										//else
+											echo '<span style="color:black">'.$q['pair_currency'].'</span>';
 										?>
-										&nbsp;&nbsp;for&nbsp;&nbsp;<?php echo $q['cur']; ?>
+										&nbsp;&nbsp;for&nbsp;&nbsp;<?php echo $q['pair_asset']; ?>
 									</h3>
                                 </div>
                                 <div class="panel-body">
@@ -225,27 +279,30 @@
 												<span class="input-group-addon" id="basic-addon1" style="width:40%">
 												
 												<?php 
-													if ($q['type'] == 'FUT')
-														echo $q['contract'];
-													else
-														echo $q['ass'];
+													//if ($q['type'] == 'FUT')
+													//	echo $q['contract'];
+													//else
+													echo $q['pair_asset'];
 												?>												
 												</span>
 											</div>
 											
 											<div class="input-group m-b-sm">
 												<input type="text" type="number" class="form-control idxtPrice" placeholder="Price" aria-describedby="basic-addon1">
-												<span class="input-group-addon" id="basic-addon1" style="width:40%"><?php echo $q['cur']; ?></span>
+												<span class="input-group-addon" id="basic-addon1" style="width:40%"><?php echo $q['pair_currency']; ?></span>
 												
 											</div>
 											
 											<div class="input-group m-b-sm" style="margin-bottom:2px !important;">
 												<input type="text" class="form-control idxtTotal" placeholder="Total" aria-describedby="basic-addon1" readonly="">
-												<span class="input-group-addon" id="basic-addon1"><?php echo $q['cur']; ?></span>
+												<span class="input-group-addon" id="basic-addon1"><?php echo $q['pair_currency']; ?></span>
 											</div>											
 											
 											<div class="input-group m-b-sm">
-											<p class="form-control-static">Transaction fee: <span class="idxtTradeFee">0.123</span> <?php echo $q['cur'];?></p>
+											<p class="form-control-static">
+												Transaction fee: <span class="idxtTradeFee">0.123</span> <?php echo $q['pair_currency'];?>
+												 (<?php echo $q['buy_order_fee_prc'];?>%)
+											</p>
 											</div>
 											
 											<div class="input-group m-b-sm" style="text-align:center; width:100%;">
@@ -264,12 +321,13 @@
                                     <h3 class="panel-title">
 										Sell 
 										<?php 
-										if ($q['type'] == 'FUT')
-											echo '<span style="color:black">' . $q['contract'] . '</span>' . ' contract';
-										else
-											echo '<span style="color:black">' . $q['ass'] . '</span>';
+										//if ($q['type'] == 'FUT')
+										//	echo '<span style="color:black">' . $q['contract'] . '</span>' . ' contract';
+										//else
+										
+										echo '<span style="color:black">' . $q['pair_asset'] . '</span>';
 										?>
-										&nbsp;&nbsp;for&nbsp;&nbsp;<?php echo $q['cur']; ?>
+										&nbsp;&nbsp;for&nbsp;&nbsp;<?php echo $q['pair_currency']; ?>
 									</h3>
                                 </div>
                                 <div class="panel-body">
@@ -282,27 +340,31 @@
 												<span class="input-group-addon" id="basic-addon1" style="width:40%">
 												
 												<?php 
-													if ($q['type'] == 'FUT')
-														echo $q['contract'];
-													else
-														echo $q['ass'];
+													//if ($q['type'] == 'FUT')
+													//	echo $q['contract'];
+													//else
+													
+													echo $q['pair_asset'];
 												?>												
 												</span>
 											</div>
 											
 											<div class="input-group m-b-sm">
 												<input type="text" class="form-control idxtPrice" placeholder="Price" aria-describedby="basic-addon1">
-												<span class="input-group-addon" id="basic-addon1" style="width:40%"><?php echo $q['cur']; ?></span>
+												<span class="input-group-addon" id="basic-addon1" style="width:40%"><?php echo $q['pair_currency']; ?></span>
 												
 											</div>
 											
 											<div class="input-group m-b-sm" style="margin-bottom:2px !important;">
 												<input type="text" class="form-control idxtTotal" placeholder="Total" aria-describedby="basic-addon1" readonly="">
-												<span class="input-group-addon" id="basic-addon1"><?php echo $q['cur']; ?></span>
+												<span class="input-group-addon" id="basic-addon1"><?php echo $q['pair_currency']; ?></span>
 											</div>											
 											
 											<div class="input-group m-b-sm">
-											<p class="form-control-static">Transaction fee: <span class="idxtTradeFee">0.123</span> <?php echo $q['cur'];?></p>
+											<p class="form-control-static">
+												Transaction fee: <span class="idxtTradeFee">0.123</span> <?php echo $q['pair_currency'];?> 
+												 (<?php echo $q['sell_order_fee_prc'];?>%)
+											</p>
 											</div>
 											
 											<div class="input-group m-b-sm" style="text-align:center; width:100%;">
@@ -336,20 +398,21 @@
 											<li>Asset available<div class="text-success pull-right">
 												<span class="idxtPositionAssets">-</span> 
 											<?php 
-												if ($q['type'] == 'FUT')
-													echo $q['contract'];
-												else
-													echo $q['ass'];
+												//if ($q['type'] == 'FUT')
+												//	echo $q['contract'];
+												//else
+												
+												echo $q['pair_asset'];
 											?>
 											</div></li>
 											<li>Currency available<div class="text-success pull-right">
-											<span class="idxtPositionCurrency">-</span> <?php echo $q['cur'];?></div></li>
+											<span class="idxtPositionCurrency">-</span> <?php echo $q['pair_currency'];?></div></li>
 											<li>Margin deposit<div class="text-success pull-right">
-											<span class="idxtPositionMargins">-</span> <?php echo $q['cur'];?>
+											<span class="idxtPositionMargins">-</span> <?php echo $q['pair_currency'];?>
 											<!--<i class="fa fa-level-up"></i>--></div></li>
 											<li>Position/Long<div class="text-default pull-right">-</div></li>
 											<li>Position/Short<div class="text-default pull-right">-</div></li>
-											<li>Unrealized P&amp;L<div class="text-success pull-right">200 <?php echo $q['cur'];?><i class="fa fa-level-up"></i></div></li>
+											<li>Unrealized P&amp;L<div class="text-success pull-right"> - <?php echo $q['pair_currency'];?><i class="fa fa-level-up"></i></div></li>
 										</ul>
 									</div>
 								</div>
@@ -493,7 +556,7 @@
 		<script src="//static.indextrade.exchange/highstock/code/indicators/volume-by-price.js"></script>
 		
 		
-		<script src="idxt.js"></script>
+		<script src="idxt.js?_=<?php echo microtime(true); ?>"></script>
 		
 		<script>
 			/* 
@@ -558,9 +621,33 @@
 			
 			//загружаем текущий маркет овервью 
 			if (curAsset && curAsset.symbol){
+				idxt.createChart( curAsset.symbol );
+				
 				$.getJSON('/market/overview?symbol=' + curAsset.symbol, function(d){
 					if (d && !d.error && d.data){
-						idxt.renderMarketView( d.data );
+						if (d.data.mview)
+							idxt.renderMarketView( d.data.mview );
+						
+						if (d.data.idata && idxt.currentChart){
+							idxt.currentChart.addSeries( {
+								name: d.data.indexSymbol,
+								type: 'spline',
+								id: 'index_price',
+								data: d.data.idata
+							}, true);
+							
+							idxt.currentChart.addSeries( {
+								name: '24h Trading Volume, M USD',
+								type: 'column',
+								id: 'volume',
+								data: d.data.ivol,
+								yAxis: 1
+							}, true);
+							
+	
+							
+							
+						}
 					}
 				});
 				
